@@ -1,0 +1,27 @@
+# Build artifacts
+/target/
+
+# External dependencies (cloned by setup.sh)
+deps/
+
+# Persistent sandbox compilation cache
+.rust-game-cache/
+
+# Player state (stored in user data dir, but fallback may be here)
+.rust-game-state.json
+
+# macOS metadata
+.DS_Store
+
+# Editor files
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+
+# Temporary files
+*.tmp
+
+# Claude Code local settings
+.claude/
