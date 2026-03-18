@@ -21,9 +21,61 @@ pub struct App {
 }
 
 impl App {
+    /// Find the exercises directory by searching multiple locations.
+    ///
+    /// Priority:
+    /// 1. `RUST_GAME_DIR` env var (explicit override — looks for `$RUST_GAME_DIR/exercises/`)
+    /// 2. `./exercises/` in the current working directory (primary workflow)
+    /// 3. Relative to the executable (handles PATH / symlink scenarios)
+    fn find_exercises_dir() -> Result<PathBuf> {
+        // 1. Env var override
+        if let Ok(root) = std::env::var("RUST_GAME_DIR") {
+            let dir = PathBuf::from(&root).join("exercises");
+            if dir.is_dir() {
+                return Ok(dir);
+            }
+        }
+
+        // 2. Current working directory
+        let cwd = PathBuf::from("exercises");
+        if cwd.is_dir() {
+            return Ok(cwd);
+        }
+
+        // 3. Relative to executable
+        if let Ok(exe) = std::env::current_exe() {
+            if let Some(exe_dir) = exe.parent() {
+                // Check sibling (exe next to exercises/)
+                let sibling = exe_dir.join("exercises");
+                if sibling.is_dir() {
+                    return Ok(sibling);
+                }
+                // Check parent (exe in target/debug/, exercises/ at repo root)
+                if let Some(grandparent) = exe_dir.parent().and_then(|p| p.parent()) {
+                    let repo_root = grandparent.join("exercises");
+                    if repo_root.is_dir() {
+                        return Ok(repo_root);
+                    }
+                }
+            }
+        }
+
+        anyhow::bail!(
+            "Could not find the exercises/ directory.\n\n\
+             rust-game must be run from the repository root:\n\
+             \n\
+             \x20   cd /path/to/rust-game\n\
+             \x20   cargo run\n\
+             \n\
+             Or set the RUST_GAME_DIR environment variable:\n\
+             \n\
+             \x20   RUST_GAME_DIR=/path/to/rust-game rust-game"
+        )
+    }
+
     /// Initialize the app: load catalog and state.
     pub fn init() -> Result<Self> {
-        let exercises_dir = PathBuf::from("exercises");
+        let exercises_dir = Self::find_exercises_dir()?;
         let cache_dir = PathBuf::from(".rust-game-cache");
 
         let catalog = ExerciseCatalog::load(&exercises_dir)
