@@ -1,0 +1,1307 @@
+# rust-game Exercise Manifest
+#
+# This file defines all modules and exercises.
+# See project-plan.md for the full schema specification.
+#
+# Exercises will be added in Phase 1 (loading) and Phase 7 (V1 content).
+
+# ============================================================
+# Module Definitions
+# ============================================================
+
+[[modules]]
+id = "01_getting_started"
+name = "Getting Started"
+theme_name = "The First Steps"
+flavor_text = "Every great Rustacean started here. Time to say hello."
+tier = "foundation"
+order = 1
+prerequisites = []
+
+[[modules]]
+id = "02_variables_types"
+name = "Variables & Types"
+theme_name = "The Binding Forge"
+flavor_text = "In Rust, bindings are immutable by default. Let's understand why."
+tier = "foundation"
+order = 2
+prerequisites = ["01_getting_started"]
+
+[[modules]]
+id = "03_functions_control_flow"
+name = "Functions & Control Flow"
+theme_name = "The Flow Chamber"
+flavor_text = "Expressions, not statements. Everything returns a value."
+tier = "foundation"
+order = 3
+prerequisites = ["02_variables_types"]
+
+[[modules]]
+id = "04_ownership_moves"
+name = "Ownership & Moves"
+theme_name = "The Ownership Trials"
+flavor_text = "This is it. The concept that makes Rust, Rust."
+tier = "foundation"
+order = 4
+prerequisites = ["03_functions_control_flow"]
+
+[[modules]]
+id = "05_borrowing_references"
+name = "Borrowing & References"
+theme_name = "The Borrow Sanctum"
+flavor_text = "You can look, but can you touch? Learn the rules of borrowing."
+tier = "foundation"
+order = 5
+prerequisites = ["04_ownership_moves"]
+
+# ============================================================
+# Exercises
+# ============================================================
+
+# --- Module 01: Getting Started ---
+
+[[exercises]]
+id = "01_getting_started/hello_world"
+name = "Hello, World!"
+module = "01_getting_started"
+type = "fix_compiler_error"
+difficulty = "beginner"
+base_xp = 10
+file = "01_getting_started/hello_world.rs"
+solution = "01_getting_started/solutions/hello_world.rs"
+order = 1
+description = "Fix the classic Hello World program."
+flavor_text = "Every journey begins with a single println!."
+hints = [
+    "Look closely at how println is called. Is something missing?",
+    "In Rust, println! is a macro — note the exclamation mark.",
+]
+ci = true
+
+[[exercises]]
+id = "01_getting_started/cargo_basics"
+name = "Cargo Basics"
+module = "01_getting_started"
+type = "fix_compiler_error"
+difficulty = "beginner"
+base_xp = 10
+file = "01_getting_started/cargo_basics.rs"
+solution = "01_getting_started/solutions/cargo_basics.rs"
+order = 2
+description = "Fix missing semicolons — Rust statements need them."
+hints = [
+    "Rust uses semicolons to end most statements.",
+    "Every `let` binding and most expressions need a semicolon at the end.",
+]
+
+[[exercises]]
+id = "01_getting_started/first_function"
+name = "First Function"
+module = "01_getting_started"
+type = "implement_from_scratch"
+difficulty = "beginner"
+base_xp = 20
+file = "01_getting_started/first_function.rs"
+solution = "01_getting_started/solutions/first_function.rs"
+order = 3
+description = "Write your first Rust function — a greeting generator."
+flavor_text = "Functions are the building blocks. Let's write one."
+hints = [
+    "The function signature should be: fn greet(name: &str) -> String",
+    "Use format!() to create a String. It works like println! but returns a String instead of printing.",
+]
+
+# --- Module 02: Variables & Types ---
+
+[[exercises]]
+id = "02_variables_types/immutable_by_default"
+name = "Immutable by Default"
+module = "02_variables_types"
+type = "fix_compiler_error"
+difficulty = "beginner"
+base_xp = 10
+file = "02_variables_types/immutable_by_default.rs"
+solution = "02_variables_types/solutions/immutable_by_default.rs"
+order = 1
+description = "Learn why Rust variables are immutable by default."
+flavor_text = "Immutability isn't a limitation — it's a superpower."
+hints = [
+    "In Rust, `let x = 5;` creates an immutable binding. You can't reassign it.",
+    "Add the `mut` keyword: `let mut x = 5;` to make it mutable.",
+]
+ci = true
+
+[[exercises]]
+id = "02_variables_types/shadowing"
+name = "Shadowing"
+module = "02_variables_types"
+type = "fix_compiler_error"
+difficulty = "beginner"
+base_xp = 10
+file = "02_variables_types/shadowing.rs"
+solution = "02_variables_types/solutions/shadowing.rs"
+order = 2
+description = "Shadowing lets you reuse a name with a different type."
+hints = [
+    "Shadowing uses `let` again — it creates a new variable that 'shadows' the old one.",
+    "The type annotation `&str` is wrong — `len()` returns a `usize`.",
+]
+
+[[exercises]]
+id = "02_variables_types/type_annotations"
+name = "Type Annotations"
+module = "02_variables_types"
+type = "debug_logic_bug"
+difficulty = "beginner"
+base_xp = 15
+file = "02_variables_types/type_annotations.rs"
+solution = "02_variables_types/solutions/type_annotations.rs"
+order = 3
+description = "Integer division can silently lose precision. Find the bug."
+ci = true
+hints = [
+    "Look at fahrenheit_to_celsius. The formula is correct mathematically, but integer division truncates.",
+    "The order of operations matters: (f - 32) * 5 / 9 keeps more precision than (f - 32) * (5 / 9).",
+]
+
+# --- Module 03: Functions & Control Flow ---
+
+[[exercises]]
+id = "03_functions_control_flow/expressions"
+name = "Expressions"
+module = "03_functions_control_flow"
+type = "fix_compiler_error"
+difficulty = "beginner"
+base_xp = 10
+file = "03_functions_control_flow/expressions.rs"
+solution = "03_functions_control_flow/solutions/expressions.rs"
+order = 1
+description = "Learn that blocks, if, and match are expressions that return values."
+hints = [
+    "The last expression in a block (without a semicolon) is the return value.",
+    "Adding a semicolon turns an expression into a statement that returns ().",
+    "The match expression needs a semicolon after the closing brace because it's followed by another statement.",
+]
+
+[[exercises]]
+id = "03_functions_control_flow/loops"
+name = "Loop Logic"
+module = "03_functions_control_flow"
+type = "debug_logic_bug"
+difficulty = "beginner"
+base_xp = 15
+file = "03_functions_control_flow/loops.rs"
+solution = "03_functions_control_flow/solutions/loops.rs"
+order = 2
+description = "Fix logic bugs in Rust's loop, while, and for constructs."
+hints = [
+    "In countdown: what happens when n is 0 and you subtract 1 from a u32?",
+    "Rust's range syntax: 1..n is exclusive (doesn't include n). Use 1..=n for inclusive.",
+]
+
+[[exercises]]
+id = "03_functions_control_flow/match_basics"
+name = "Match Basics"
+module = "03_functions_control_flow"
+type = "implement_from_scratch"
+difficulty = "beginner"
+base_xp = 20
+file = "03_functions_control_flow/match_basics.rs"
+solution = "03_functions_control_flow/solutions/match_basics.rs"
+order = 3
+description = "Implement functions using Rust's exhaustive match expression."
+flavor_text = "Match is pattern matching on steroids."
+hints = [
+    "Use match with literal patterns: 1 => \"Monday\", 2 => \"Tuesday\", ..., _ => \"invalid\"",
+    "For grades, use range patterns: 90..=100 => 'A'",
+    "For FizzBuzz, match on a tuple: match (n % 3, n % 5) { (0, 0) => ..., (0, _) => ..., ... }",
+]
+ci = true
+
+# --- Module 04: Ownership & Moves ---
+
+[[exercises]]
+id = "04_ownership_moves/what_is_ownership"
+name = "What is Ownership?"
+module = "04_ownership_moves"
+type = "fix_compiler_error"
+difficulty = "intermediate"
+base_xp = 10
+file = "04_ownership_moves/what_is_ownership.rs"
+solution = "04_ownership_moves/solutions/what_is_ownership.rs"
+order = 1
+description = "Understand that values have exactly one owner — and moves."
+flavor_text = "This is where Rust gets interesting."
+hints = [
+    "When you assign a String to another variable, the value MOVES. The original variable is invalidated.",
+    "To keep both variables usable, you need to explicitly .clone() the String.",
+]
+
+[[exercises]]
+id = "04_ownership_moves/move_semantics"
+name = "Move Semantics"
+module = "04_ownership_moves"
+type = "fix_compiler_error"
+difficulty = "intermediate"
+base_xp = 10
+file = "04_ownership_moves/move_semantics.rs"
+solution = "04_ownership_moves/solutions/move_semantics.rs"
+order = 2
+description = "Passing a String to a function moves ownership into the function."
+hints = [
+    "When a function takes a String parameter, it takes ownership. The caller can't use it after.",
+    "You can either .clone() before calling, or change the function to take a reference (&str or &String).",
+]
+
+[[exercises]]
+id = "04_ownership_moves/clone_and_copy"
+name = "Clone and Copy"
+module = "04_ownership_moves"
+type = "fix_compiler_error"
+difficulty = "intermediate"
+base_xp = 10
+file = "04_ownership_moves/clone_and_copy.rs"
+solution = "04_ownership_moves/solutions/clone_and_copy.rs"
+order = 3
+description = "Stack types Copy automatically. Heap types must be explicitly cloned."
+hints = [
+    "Integers, booleans, chars, and floats implement Copy — they're automatically copied on assignment.",
+    "String and Vec live on the heap and do NOT implement Copy. Use .clone() to make an explicit copy.",
+]
+
+[[exercises]]
+id = "04_ownership_moves/ownership_functions"
+name = "Ownership and Functions"
+module = "04_ownership_moves"
+type = "implement_from_scratch"
+difficulty = "intermediate"
+base_xp = 20
+file = "04_ownership_moves/ownership_functions.rs"
+solution = "04_ownership_moves/solutions/ownership_functions.rs"
+order = 4
+description = "Practice ownership transfer into and out of functions."
+hints = [
+    "make_excited takes ownership of s, modifies it, and returns it. Use `mut` in the parameter.",
+    "create_greeting can use format!() which creates a new String.",
+]
+
+[[exercises]]
+id = "04_ownership_moves/boss_ownership"
+name = "The Ownership Gauntlet"
+module = "04_ownership_moves"
+type = "boss_battle"
+difficulty = "intermediate"
+base_xp = 50
+file = "04_ownership_moves/boss_ownership.rs"
+solution = "04_ownership_moves/solutions/boss_ownership.rs"
+order = 5
+description = "Build a Playlist with proper ownership semantics."
+flavor_text = "The Gauntlet awaits. Only those who truly understand ownership may pass."
+hints = [
+    "Start with `impl Playlist { ... }`. The new() method creates an empty Playlist.",
+    "add_song takes ownership: fn add_song(&mut self, song: Song) — push to self.songs.",
+    "find_by_artist returns references: use .iter().filter().collect().",
+    "remove_song returns ownership back: find the position with .iter().position(), then use .remove(pos).",
+]
+
+[[exercises]]
+id = "04_ownership_moves/predict_output"
+name = "Predict the Output"
+module = "04_ownership_moves"
+type = "reverse_engineering_fill_in"
+difficulty = "intermediate"
+base_xp = 15
+file = "04_ownership_moves/predict_output.rs"
+solution = "04_ownership_moves/solutions/predict_output.rs"
+order = 6
+description = "Trace through ownership transfers and predict what gets printed."
+flavor_text = "Can you think like the compiler?"
+ci = true
+hints = [
+    "String is a heap type — it moves on assignment. i32 is a stack type — it copies.",
+    "Trace each function call: what gets printed inside the function, and what gets returned?",
+    "Remember: x is still valid after makes_copy because i32 implements Copy.",
+]
+
+# --- Module 05: Borrowing & References ---
+
+[[exercises]]
+id = "05_borrowing_references/immutable_references"
+name = "Immutable References"
+module = "05_borrowing_references"
+type = "fix_compiler_error"
+difficulty = "intermediate"
+base_xp = 10
+file = "05_borrowing_references/immutable_references.rs"
+solution = "05_borrowing_references/solutions/immutable_references.rs"
+order = 1
+description = "Use references to borrow values without taking ownership."
+hints = [
+    "Change the function to take &String instead of String.",
+    "At the call site, pass &s instead of s.",
+]
+
+[[exercises]]
+id = "05_borrowing_references/mutable_references"
+name = "Mutable References"
+module = "05_borrowing_references"
+type = "fix_compiler_error"
+difficulty = "intermediate"
+base_xp = 10
+file = "05_borrowing_references/mutable_references.rs"
+solution = "05_borrowing_references/solutions/mutable_references.rs"
+order = 2
+description = "Mutable references let you modify borrowed values."
+hints = [
+    "Change &String to &mut String in the function parameter.",
+    "The variable must be declared `let mut s` and passed as `&mut s`.",
+]
+
+[[exercises]]
+id = "05_borrowing_references/reference_rules"
+name = "Reference Rules"
+module = "05_borrowing_references"
+type = "fix_compiler_error"
+difficulty = "intermediate"
+base_xp = 10
+file = "05_borrowing_references/reference_rules.rs"
+solution = "05_borrowing_references/solutions/reference_rules.rs"
+order = 3
+description = "The two rules: one &mut OR many & — never both. No dangling."
+hints = [
+    "For rule_one: you can't have &mut while & references are still in use. Use r1 and r2 BEFORE creating r3.",
+    "For rule_two: move the String creation outside the inner block so it lives long enough.",
+]
+
+[[exercises]]
+id = "05_borrowing_references/string_slices"
+name = "String Slices"
+module = "05_borrowing_references"
+type = "implement_from_scratch"
+difficulty = "intermediate"
+base_xp = 20
+file = "05_borrowing_references/string_slices.rs"
+solution = "05_borrowing_references/solutions/string_slices.rs"
+order = 4
+description = "Work with &str slices — borrowed views into string data."
+hints = [
+    "Use s.find(' ') to find the first space, then &s[..pos] to slice.",
+    "For last_n_chars: &s[s.len() - n..] gives you the last n bytes (works for ASCII).",
+    "For starts_with: compare &s[..prefix.len()] == prefix.",
+]
+
+[[exercises]]
+id = "05_borrowing_references/boss_borrowing"
+name = "The Borrow Sanctum"
+module = "05_borrowing_references"
+type = "boss_battle"
+difficulty = "intermediate"
+base_xp = 50
+file = "05_borrowing_references/boss_borrowing.rs"
+solution = "05_borrowing_references/solutions/boss_borrowing.rs"
+order = 5
+description = "Build a TextAnalyzer that borrows text and provides analysis."
+flavor_text = "The Sanctum guards its secrets. Only those who borrow wisely may enter."
+hints = [
+    "TextAnalyzer borrows text with a lifetime: impl<'a> TextAnalyzer<'a> { ... }",
+    "Use split_whitespace() for word operations — it handles multiple spaces.",
+    "longest_word: use .max_by_key(|w| w.len()).unwrap_or(\"\").",
+    "contains_word: use .any(|w| w == word) on the split iterator.",
+]
+
+# ============================================================
+# Module Definitions (06-18)
+# ============================================================
+
+[[modules]]
+id = "06_structs_methods"
+name = "Structs & Methods"
+theme_name = "The Builders' Guild"
+flavor_text = "Forget classes. Structs with impl blocks are Rust's way."
+tier = "intermediate"
+order = 6
+prerequisites = ["05_borrowing_references"]
+
+[[modules]]
+id = "07_enums_pattern_matching"
+name = "Enums & Pattern Matching"
+theme_name = "The Pattern Archives"
+flavor_text = "Enums in Rust carry data. Match gives you exhaustive power."
+tier = "intermediate"
+order = 7
+prerequisites = ["05_borrowing_references"]
+
+[[modules]]
+id = "08_error_handling"
+name = "Error Handling"
+theme_name = "The Error Gauntlet"
+flavor_text = "No exceptions. No null. Just Result and Option."
+tier = "intermediate"
+order = 8
+prerequisites = ["07_enums_pattern_matching"]
+
+[[modules]]
+id = "09_collections"
+name = "Collections"
+theme_name = "The Data Vault"
+flavor_text = "Vec, String, HashMap — the workhorses of Rust."
+tier = "intermediate"
+order = 9
+prerequisites = ["05_borrowing_references"]
+
+[[modules]]
+id = "10_modules_packages"
+name = "Modules & Packages"
+theme_name = "The Crate Workshop"
+flavor_text = "Organize your code. Understand pub, mod, and use."
+tier = "intermediate"
+order = 10
+prerequisites = ["05_borrowing_references"]
+
+[[modules]]
+id = "11_generics_traits"
+name = "Generics & Traits"
+theme_name = "The Trait Nexus"
+flavor_text = "Traits are Rust's answer to interfaces — but so much more."
+tier = "advanced"
+order = 11
+prerequisites = ["06_structs_methods", "07_enums_pattern_matching"]
+
+[[modules]]
+id = "12_lifetimes"
+name = "Lifetimes"
+theme_name = "The Lifetime Crucible"
+flavor_text = "The final piece of the puzzle. How long does a reference live?"
+tier = "advanced"
+order = 12
+prerequisites = ["11_generics_traits"]
+
+[[modules]]
+id = "13_closures_iterators"
+name = "Closures & Iterators"
+theme_name = "The Iterator Engine"
+flavor_text = "Functional programming meets zero-cost abstractions."
+tier = "advanced"
+order = 13
+prerequisites = ["11_generics_traits"]
+
+[[modules]]
+id = "14_smart_pointers"
+name = "Smart Pointers"
+theme_name = "The Pointer Maze"
+flavor_text = "Box, Rc, Arc, RefCell — when stack allocation isn't enough."
+tier = "advanced"
+order = 14
+prerequisites = ["11_generics_traits"]
+
+[[modules]]
+id = "15_concurrency"
+name = "Fearless Concurrency"
+theme_name = "The Concurrency Arena"
+flavor_text = "Data races at compile time? Not in Rust."
+tier = "advanced"
+order = 15
+prerequisites = ["14_smart_pointers"]
+
+[[modules]]
+id = "16_testing_docs"
+name = "Testing & Documentation"
+theme_name = "The Quality Gate"
+flavor_text = "Testing is a first-class citizen in Rust."
+tier = "expert"
+order = 16
+prerequisites = ["13_closures_iterators"]
+
+[[modules]]
+id = "17_macros"
+name = "Macros"
+theme_name = "The Macro Forge"
+flavor_text = "Code that writes code. Powerful, but wield with care."
+tier = "expert"
+order = 17
+prerequisites = ["11_generics_traits"]
+
+[[modules]]
+id = "18_async_rust"
+name = "Async Rust"
+theme_name = "The Async Dimension"
+flavor_text = "Futures, tasks, and the runtime. Async/await, Rust style."
+tier = "expert"
+order = 18
+prerequisites = ["15_concurrency", "13_closures_iterators"]
+
+# ============================================================
+# Exercises (Modules 06-18)
+# ============================================================
+
+# --- Module 06: Structs & Methods ---
+
+[[exercises]]
+id = "06_structs_methods/defining_structs"
+name = "Defining Structs"
+module = "06_structs_methods"
+type = "fix_compiler_error"
+difficulty = "intermediate"
+base_xp = 10
+file = "06_structs_methods/defining_structs.rs"
+solution = "06_structs_methods/solutions/defining_structs.rs"
+order = 1
+description = "Fix visibility and field access errors in struct definitions."
+hints = [
+    "Struct and its fields need `pub` to be accessed outside the module.",
+    "Field names must match exactly — there is no `years` field, only `age`.",
+]
+
+[[exercises]]
+id = "06_structs_methods/methods"
+name = "Methods"
+module = "06_structs_methods"
+type = "implement_from_scratch"
+difficulty = "intermediate"
+base_xp = 20
+file = "06_structs_methods/methods.rs"
+solution = "06_structs_methods/solutions/methods.rs"
+order = 2
+description = "Implement methods on a Rectangle struct using impl blocks."
+hints = [
+    "Use `impl Rectangle { ... }` to define methods.",
+    "Methods that modify the struct need `&mut self`; read-only ones use `&self`.",
+]
+
+[[exercises]]
+id = "06_structs_methods/tuple_structs"
+name = "Tuple Structs"
+module = "06_structs_methods"
+type = "fix_compiler_error"
+difficulty = "intermediate"
+base_xp = 10
+file = "06_structs_methods/tuple_structs.rs"
+solution = "06_structs_methods/solutions/tuple_structs.rs"
+order = 3
+description = "Fix tuple struct construction, field access, and newtype patterns."
+hints = [
+    "Tuple structs use positional fields: Color(255, 0, 0), not Color { r: 255 }.",
+    "Access fields by index: color.0, color.1, color.2.",
+]
+
+# --- Module 07: Enums & Pattern Matching ---
+
+[[exercises]]
+id = "07_enums_pattern_matching/enums_with_data"
+name = "Enums with Data"
+module = "07_enums_pattern_matching"
+type = "implement_from_scratch"
+difficulty = "intermediate"
+base_xp = 20
+file = "07_enums_pattern_matching/enums_with_data.rs"
+solution = "07_enums_pattern_matching/solutions/enums_with_data.rs"
+order = 1
+description = "Define a Shape enum with data-carrying variants and implement methods."
+hints = [
+    "Use `enum Shape { Circle { radius: f64 }, ... }` to define variants with named fields.",
+    "Match on the enum to destructure and access inner data: `Shape::Circle { radius } => ...`.",
+]
+
+[[exercises]]
+id = "07_enums_pattern_matching/option_type"
+name = "Option Type"
+module = "07_enums_pattern_matching"
+type = "debug_logic_bug"
+difficulty = "intermediate"
+base_xp = 15
+file = "07_enums_pattern_matching/option_type.rs"
+solution = "07_enums_pattern_matching/solutions/option_type.rs"
+order = 2
+description = "Fix logic bugs in functions that handle Option values incorrectly."
+hints = [
+    "When no even number is found, return None — not Some(0).",
+    "Use `if let`, `map`, or `unwrap_or` to handle None without panicking.",
+]
+
+[[exercises]]
+id = "07_enums_pattern_matching/if_let"
+name = "If Let"
+module = "07_enums_pattern_matching"
+type = "fix_compiler_error"
+difficulty = "intermediate"
+base_xp = 10
+file = "07_enums_pattern_matching/if_let.rs"
+solution = "07_enums_pattern_matching/solutions/if_let.rs"
+order = 3
+description = "Fix if let and let else syntax errors for concise pattern matching."
+hints = [
+    "Use `if let Some(val) = setting { ... }` instead of a verbose match.",
+    "The `let else` block must diverge — add `return;` at the end.",
+]
+
+[[exercises]]
+id = "07_enums_pattern_matching/predict_match"
+name = "Predict the Match"
+module = "07_enums_pattern_matching"
+type = "reverse_engineering_multiple_choice"
+difficulty = "intermediate"
+base_xp = 15
+file = "07_enums_pattern_matching/predict_match.rs"
+solution = "07_enums_pattern_matching/solutions/predict_match.rs"
+order = 4
+description = "Read match arms and predict the program output."
+flavor_text = "Pattern matching is powerful — can you trace it?"
+ci = true
+hints = [
+    "Follow each coin through the match: Quarter prints its state, Penny prints 'Lucky penny!'.",
+    "Dime matches a simple arm with no println!, it just returns 10.",
+    "The order of output depends on the order of coins in the vector.",
+]
+multiple_choice = [
+    { label = "A", text = "State quarter: Alaska\nLucky penny!\nTotal: 36 cents", correct = true },
+    { label = "B", text = "Total: 36 cents", correct = false },
+    { label = "C", text = "Lucky penny!\nState quarter: Alaska\nTotal: 36 cents", correct = false },
+    { label = "D", text = "State quarter: Alaska\nTotal: 36 cents\nLucky penny!", correct = false },
+]
+
+# --- Module 08: Error Handling ---
+
+[[exercises]]
+id = "08_error_handling/result_type"
+name = "Result Type"
+module = "08_error_handling"
+type = "fix_compiler_error"
+difficulty = "intermediate"
+base_xp = 10
+file = "08_error_handling/result_type.rs"
+solution = "08_error_handling/solutions/result_type.rs"
+order = 1
+description = "Replace unwrap() calls with proper Result error handling."
+hints = [
+    "Change the return type to Result and use `?` or `match` instead of unwrap().",
+    "The divide function returns Err but the return type says i32 — change it to Result<i32, String>.",
+]
+
+[[exercises]]
+id = "08_error_handling/question_mark"
+name = "The ? Operator"
+module = "08_error_handling"
+type = "implement_from_scratch"
+difficulty = "intermediate"
+base_xp = 20
+file = "08_error_handling/question_mark.rs"
+solution = "08_error_handling/solutions/question_mark.rs"
+order = 2
+description = "Implement functions using the ? operator for error propagation."
+hints = [
+    "The ? operator unwraps Ok or returns Err early from the function.",
+    "Use .map_err(|e| e.to_string()) to convert between error types.",
+]
+
+[[exercises]]
+id = "08_error_handling/custom_errors"
+name = "Custom Errors"
+module = "08_error_handling"
+type = "implement_from_scratch"
+difficulty = "intermediate"
+base_xp = 20
+file = "08_error_handling/custom_errors.rs"
+solution = "08_error_handling/solutions/custom_errors.rs"
+order = 3
+description = "Define a custom error enum and implement Display and From traits."
+hints = [
+    "Define an enum with variants for each error case, then implement fmt::Display.",
+    "Implement From<ParseIntError> for your error type so ? can auto-convert.",
+]
+
+[[exercises]]
+id = "08_error_handling/boss_errors"
+name = "The Error Gauntlet"
+module = "08_error_handling"
+type = "boss_battle"
+difficulty = "intermediate"
+base_xp = 50
+file = "08_error_handling/boss_errors.rs"
+solution = "08_error_handling/solutions/boss_errors.rs"
+order = 4
+description = "Build a CSV parser with comprehensive error handling."
+flavor_text = "The Gauntlet demands you handle every possible failure."
+hints = [
+    "Define a CsvError enum with variants for each kind of failure.",
+    "Use split_once or split(',') to parse each CSV row into fields.",
+    "Validate the header, column counts, grade ranges, and parse errors separately.",
+    "Use ? with From/Into conversions to propagate errors cleanly.",
+]
+ci = true
+
+# --- Module 09: Collections ---
+
+[[exercises]]
+id = "09_collections/vectors"
+name = "Vectors"
+module = "09_collections"
+type = "debug_logic_bug"
+difficulty = "intermediate"
+base_xp = 15
+file = "09_collections/vectors.rs"
+solution = "09_collections/solutions/vectors.rs"
+order = 1
+description = "Fix logic bugs in Vec operations like sum, filter, and rotate."
+hints = [
+    "The sum loop starts at index 1, skipping the first element — start at 0.",
+    "filter_even keeps odd numbers — flip the condition to n % 2 == 0.",
+]
+
+[[exercises]]
+id = "09_collections/strings"
+name = "Strings"
+module = "09_collections"
+type = "fix_compiler_error"
+difficulty = "intermediate"
+base_xp = 10
+file = "09_collections/strings.rs"
+solution = "09_collections/solutions/strings.rs"
+order = 2
+description = "Fix common String vs &str mistakes and UTF-8 indexing errors."
+hints = [
+    "Use .chars().next() to get the first character — Rust strings are UTF-8, not byte arrays.",
+    "push_str takes &str, push takes char — don't mix them up.",
+]
+
+[[exercises]]
+id = "09_collections/hashmaps"
+name = "HashMaps"
+module = "09_collections"
+type = "implement_from_scratch"
+difficulty = "intermediate"
+base_xp = 20
+file = "09_collections/hashmaps.rs"
+solution = "09_collections/solutions/hashmaps.rs"
+order = 3
+description = "Implement word frequency counting, grouping, and merging with HashMap."
+hints = [
+    "Use entry(key).or_insert(0) to initialize and increment counters.",
+    "Use .chars().next() to get the first character for grouping by initial.",
+]
+
+# --- Module 10: Modules & Packages ---
+
+[[exercises]]
+id = "10_modules_packages/visibility"
+name = "Visibility"
+module = "10_modules_packages"
+type = "fix_compiler_error"
+difficulty = "intermediate"
+base_xp = 10
+file = "10_modules_packages/visibility.rs"
+solution = "10_modules_packages/solutions/visibility.rs"
+order = 1
+description = "Fix visibility modifiers so modules can access each other's items."
+hints = [
+    "Add `pub` to structs, fields, functions, and modules that need external access.",
+    "Use `pub(super)` for items that should only be visible to the parent module.",
+]
+
+[[exercises]]
+id = "10_modules_packages/use_paths"
+name = "Use Paths"
+module = "10_modules_packages"
+type = "fix_compiler_error"
+difficulty = "intermediate"
+base_xp = 10
+file = "10_modules_packages/use_paths.rs"
+solution = "10_modules_packages/solutions/use_paths.rs"
+order = 2
+description = "Fix broken use statements and module import paths."
+hints = [
+    "HashMap lives at std::collections::HashMap, not std::HashMap.",
+    "Use `use shapes::{Circle, Square};` to bring multiple items into scope.",
+]
+
+[[exercises]]
+id = "10_modules_packages/organizing_code"
+name = "Organizing Code"
+module = "10_modules_packages"
+type = "implement_from_scratch"
+difficulty = "intermediate"
+base_xp = 20
+file = "10_modules_packages/organizing_code.rs"
+solution = "10_modules_packages/solutions/organizing_code.rs"
+order = 3
+description = "Create modules with proper visibility for math utilities and validation."
+hints = [
+    "Define `mod math { pub fn gcd(...) { ... } pub mod stats { ... } }`.",
+    "Validator stores rules as Vec of boxed closures with names.",
+]
+
+# --- Module 11: Generics & Traits ---
+
+[[exercises]]
+id = "11_generics_traits/generic_functions"
+name = "Generic Functions"
+module = "11_generics_traits"
+type = "fix_compiler_error"
+difficulty = "intermediate"
+base_xp = 10
+file = "11_generics_traits/generic_functions.rs"
+solution = "11_generics_traits/solutions/generic_functions.rs"
+order = 1
+description = "Add trait bounds to generic function signatures to make them compile."
+hints = [
+    "If a function prints with `{}`, the type needs `Display`. If it compares with `>`, it needs `PartialOrd`.",
+    "Multiple bounds: `T: Display + PartialOrd + Clone`.",
+]
+
+[[exercises]]
+id = "11_generics_traits/defining_traits"
+name = "Defining Traits"
+module = "11_generics_traits"
+type = "implement_from_scratch"
+difficulty = "intermediate"
+base_xp = 20
+file = "11_generics_traits/defining_traits.rs"
+solution = "11_generics_traits/solutions/defining_traits.rs"
+order = 2
+description = "Define Describable and Measurable traits and implement them for structs."
+hints = [
+    "Default methods in traits can call other trait methods: self.describe().",
+    "Truncation: if describe().len() > 20, return first 20 chars + '...'.",
+]
+
+[[exercises]]
+id = "11_generics_traits/trait_bounds"
+name = "Trait Bounds"
+module = "11_generics_traits"
+type = "fix_compiler_error"
+difficulty = "intermediate"
+base_xp = 10
+file = "11_generics_traits/trait_bounds.rs"
+solution = "11_generics_traits/solutions/trait_bounds.rs"
+order = 3
+description = "Fix missing trait bounds on functions, structs, and impl blocks."
+hints = [
+    "Use where clauses for readability when there are many bounds.",
+    "The impl block for Wrapper needs bounds that match the methods it provides.",
+]
+
+[[exercises]]
+id = "11_generics_traits/boss_traits"
+name = "The Trait Nexus"
+module = "11_generics_traits"
+type = "boss_battle"
+difficulty = "advanced"
+base_xp = 50
+file = "11_generics_traits/boss_traits.rs"
+solution = "11_generics_traits/solutions/boss_traits.rs"
+order = 4
+description = "Build a SmartCollection with trait-based filtering and sorting."
+flavor_text = "The Nexus demands mastery of generics and traits combined."
+hints = [
+    "Use separate impl blocks with different trait bounds for different methods.",
+    "sorted_by_priority: collect references, then sort_by with cmp::Reverse or sort_by_key.",
+    "summary: count items where is_urgent() returns true.",
+    "Prioritized default is_urgent: self.priority() > 7.",
+]
+
+# --- Module 12: Lifetimes ---
+
+[[exercises]]
+id = "12_lifetimes/lifetime_basics"
+name = "Lifetime Basics"
+module = "12_lifetimes"
+type = "fix_compiler_error"
+difficulty = "intermediate"
+base_xp = 10
+file = "12_lifetimes/lifetime_basics.rs"
+solution = "12_lifetimes/solutions/lifetime_basics.rs"
+order = 1
+description = "Add lifetime annotations to functions that return references."
+hints = [
+    "When both parameters could be the source of the return value, give them the same lifetime: `<'a>`.",
+    "When only one parameter is the source, tie the return lifetime to that parameter only.",
+]
+
+[[exercises]]
+id = "12_lifetimes/struct_lifetimes"
+name = "Struct Lifetimes"
+module = "12_lifetimes"
+type = "fix_compiler_error"
+difficulty = "intermediate"
+base_xp = 10
+file = "12_lifetimes/struct_lifetimes.rs"
+solution = "12_lifetimes/solutions/struct_lifetimes.rs"
+order = 2
+description = "Add lifetime parameters to structs that hold references."
+hints = [
+    "A struct with `field: &str` must become `struct Foo<'a> { field: &'a str }`.",
+    "The impl block must also declare the lifetime: `impl<'a> Foo<'a> { ... }`.",
+]
+
+[[exercises]]
+id = "12_lifetimes/lifetime_elision"
+name = "Lifetime Elision"
+module = "12_lifetimes"
+type = "debug_logic_bug"
+difficulty = "advanced"
+base_xp = 15
+file = "12_lifetimes/lifetime_elision.rs"
+solution = "12_lifetimes/solutions/lifetime_elision.rs"
+order = 3
+description = "Fix logic bugs caused by incorrect lifetime workarounds and unnecessary allocations."
+hints = [
+    "Give both parameters the same lifetime so either can be returned.",
+    "For content_or_default, both references need the same lifetime to allow returning either.",
+]
+
+# --- Module 13: Closures & Iterators ---
+
+[[exercises]]
+id = "13_closures_iterators/closure_basics"
+name = "Closure Basics"
+module = "13_closures_iterators"
+type = "fix_compiler_error"
+difficulty = "intermediate"
+base_xp = 10
+file = "13_closures_iterators/closure_basics.rs"
+solution = "13_closures_iterators/solutions/closure_basics.rs"
+order = 1
+description = "Fix closure capture, ownership, and trait bound errors."
+hints = [
+    "Use `move` to transfer ownership when closures outlive their scope.",
+    "A closure that mutates is FnMut — if a function expects Fn, remove the mutation.",
+]
+
+[[exercises]]
+id = "13_closures_iterators/iterator_chains"
+name = "Iterator Chains"
+module = "13_closures_iterators"
+type = "implement_from_scratch"
+difficulty = "intermediate"
+base_xp = 20
+file = "13_closures_iterators/iterator_chains.rs"
+solution = "13_closures_iterators/solutions/iterator_chains.rs"
+order = 2
+description = "Implement data transformations using iterator adaptors like map, filter, and fold."
+hints = [
+    "Chain adaptors: .iter().filter(...).map(...).collect().",
+    "Use .enumerate() to pair each element with its index.",
+]
+
+[[exercises]]
+id = "13_closures_iterators/python_to_rust"
+name = "Python to Rust"
+module = "13_closures_iterators"
+type = "code_transformation"
+difficulty = "intermediate"
+base_xp = 20
+file = "13_closures_iterators/python_to_rust.rs"
+solution = "13_closures_iterators/solutions/python_to_rust.rs"
+order = 3
+description = "Convert Python list comprehension patterns to idiomatic Rust iterator chains."
+ci = true
+hints = [
+    "Python `[x * 2 for x in nums]` becomes `.iter().map(|&x| x * 2).collect()`.",
+    "Python `any(...)` and `all(...)` map directly to Rust's .any() and .all() on iterators.",
+]
+
+[[exercises]]
+id = "13_closures_iterators/zero_copy"
+name = "Zero Copy Optimization"
+module = "13_closures_iterators"
+type = "optimization"
+difficulty = "advanced"
+base_xp = 25
+file = "13_closures_iterators/zero_copy.rs"
+solution = "13_closures_iterators/solutions/zero_copy.rs"
+order = 4
+description = "Remove all .clone() calls by refactoring to use references instead."
+ci = true
+custom_checks = [{ check_type = "no_clone", message = "Remove all .clone() calls — use references instead." }]
+hints = [
+    "Change return types from String/Vec<String> to &str/Vec<&str> where possible.",
+    "Use `&e.name` instead of `e.name.clone()` — references avoid heap allocation.",
+]
+
+# --- Module 14: Smart Pointers ---
+
+[[exercises]]
+id = "14_smart_pointers/box_basics"
+name = "Box Basics"
+module = "14_smart_pointers"
+type = "fix_compiler_error"
+difficulty = "intermediate"
+base_xp = 10
+file = "14_smart_pointers/box_basics.rs"
+solution = "14_smart_pointers/solutions/box_basics.rs"
+order = 1
+description = "Fix recursive types and trait objects by wrapping them in Box."
+hints = [
+    "Recursive enum variants need Box: `Cons(i32, Box<List>)` instead of `Cons(i32, List)`.",
+    "Return trait objects as `Box<dyn Trait>` instead of bare trait names.",
+]
+
+[[exercises]]
+id = "14_smart_pointers/rc_shared"
+name = "Rc Shared Ownership"
+module = "14_smart_pointers"
+type = "implement_from_scratch"
+difficulty = "intermediate"
+base_xp = 20
+file = "14_smart_pointers/rc_shared.rs"
+solution = "14_smart_pointers/solutions/rc_shared.rs"
+order = 2
+description = "Implement shared ownership patterns using Rc for tree and graph structures."
+hints = [
+    "Use Rc::new() to create, Rc::clone() to share, Rc::strong_count() to check owners.",
+    "For the diamond graph, clone the shared child Rc into both parents.",
+]
+
+[[exercises]]
+id = "14_smart_pointers/refcell_interior"
+name = "RefCell Interior Mutability"
+module = "14_smart_pointers"
+type = "implement_from_scratch"
+difficulty = "intermediate"
+base_xp = 20
+file = "14_smart_pointers/refcell_interior.rs"
+solution = "14_smart_pointers/solutions/refcell_interior.rs"
+order = 3
+description = "Build a lazy cache using RefCell for interior mutability."
+hints = [
+    "Use self.store.borrow() for read access and self.store.borrow_mut() for write access.",
+    "Check if the key exists with borrow(), then insert with borrow_mut() if needed.",
+]
+
+# --- Module 15: Fearless Concurrency ---
+
+[[exercises]]
+id = "15_concurrency/thread_basics"
+name = "Thread Basics"
+module = "15_concurrency"
+type = "fix_compiler_error"
+difficulty = "intermediate"
+base_xp = 10
+file = "15_concurrency/thread_basics.rs"
+solution = "15_concurrency/solutions/thread_basics.rs"
+order = 1
+description = "Fix thread spawning errors involving move semantics and ownership."
+hints = [
+    "Use `move` to transfer ownership into thread closures.",
+    "Clone data before spawning if you need it in both the thread and the caller.",
+]
+
+[[exercises]]
+id = "15_concurrency/channels"
+name = "Channels"
+module = "15_concurrency"
+type = "implement_from_scratch"
+difficulty = "intermediate"
+base_xp = 20
+file = "15_concurrency/channels.rs"
+solution = "15_concurrency/solutions/channels.rs"
+order = 2
+description = "Implement message-passing concurrency using mpsc channels."
+hints = [
+    "Use mpsc::channel() to create a (Sender, Receiver) pair.",
+    "Clone the sender for each producer thread; drop the original so the receiver iterator ends.",
+]
+
+[[exercises]]
+id = "15_concurrency/shared_state"
+name = "Shared State"
+module = "15_concurrency"
+type = "fix_compiler_error"
+difficulty = "intermediate"
+base_xp = 10
+file = "15_concurrency/shared_state.rs"
+solution = "15_concurrency/solutions/shared_state.rs"
+order = 3
+description = "Fix Arc/Mutex usage for sharing mutable state across threads."
+hints = [
+    "Wrap Mutex in Arc for thread-safe shared ownership: Arc::new(Mutex::new(data)).",
+    "Use Arc::clone() before moving into each thread, and .lock().unwrap() to access.",
+]
+
+[[exercises]]
+id = "15_concurrency/boss_concurrency"
+name = "The Concurrency Arena"
+module = "15_concurrency"
+type = "boss_battle"
+difficulty = "advanced"
+base_xp = 50
+file = "15_concurrency/boss_concurrency.rs"
+solution = "15_concurrency/solutions/boss_concurrency.rs"
+order = 4
+description = "Build a parallel word frequency counter using threads, Arc, and Mutex."
+flavor_text = "The Arena tests your mastery of fearless concurrency."
+ci = true
+hints = [
+    "Split text into word-boundary chunks, one per thread.",
+    "Each thread counts words locally, then merges into a shared Arc<Mutex<HashMap>>.",
+    "Use entry().or_insert(0) for counting, and sort by frequency for top_n.",
+    "Drop the original sender before iterating the receiver.",
+]
+
+# --- Module 16: Testing & Documentation ---
+
+[[exercises]]
+id = "16_testing_docs/unit_tests"
+name = "Unit Tests"
+module = "16_testing_docs"
+type = "implement_from_scratch"
+difficulty = "intermediate"
+base_xp = 20
+file = "16_testing_docs/unit_tests.rs"
+solution = "16_testing_docs/solutions/unit_tests.rs"
+order = 1
+description = "Write comprehensive unit tests for provided functions using assert macros."
+hints = [
+    "Use `#[test]` to mark test functions, `assert_eq!` for equality, `assert!` for booleans.",
+    "Use `#[should_panic]` to test that a function panics on bad input.",
+]
+
+[[exercises]]
+id = "16_testing_docs/test_organization"
+name = "Test Organization"
+module = "16_testing_docs"
+type = "fix_compiler_error"
+difficulty = "intermediate"
+base_xp = 10
+file = "16_testing_docs/test_organization.rs"
+solution = "16_testing_docs/solutions/test_organization.rs"
+order = 2
+description = "Fix test module organization: attributes, imports, and helper functions."
+hints = [
+    "The test module attribute is `#[cfg(test)]`, not `#[cfg(testing)]`.",
+    "Import parent items with `use super::*;`, not `use super::tests;`.",
+]
+
+[[exercises]]
+id = "16_testing_docs/doc_tests"
+name = "Doc Tests"
+module = "16_testing_docs"
+type = "fix_compiler_error"
+difficulty = "intermediate"
+base_xp = 10
+file = "16_testing_docs/doc_tests.rs"
+solution = "16_testing_docs/solutions/doc_tests.rs"
+order = 3
+description = "Fix broken code examples in documentation comments."
+hints = [
+    "Doc-test function calls must match the actual function signature and name.",
+    "Bind the result with `let result = ...;` before asserting on it.",
+]
+
+# --- Module 17: Macros ---
+
+[[exercises]]
+id = "17_macros/macro_basics"
+name = "Macro Basics"
+module = "17_macros"
+type = "fix_compiler_error"
+difficulty = "expert"
+base_xp = 10
+file = "17_macros/macro_basics.rs"
+solution = "17_macros/solutions/macro_basics.rs"
+order = 1
+description = "Fix broken macro_rules! definitions with wrong designators and syntax."
+hints = [
+    "Valid designators: expr, ident, ty, literal, stmt, block — not 'value' or 'identifier'.",
+    "Multi-arm macros need semicolons between arms; repetition uses $( ... ),* syntax.",
+]
+
+[[exercises]]
+id = "17_macros/custom_vec"
+name = "Custom Vec Macro"
+module = "17_macros"
+type = "implement_from_scratch"
+difficulty = "expert"
+base_xp = 20
+file = "17_macros/custom_vec.rs"
+solution = "17_macros/solutions/custom_vec.rs"
+order = 2
+description = "Implement a my_vec! macro that works like the standard vec! macro."
+hints = [
+    "Support three forms: empty `[]`, list `[a, b, c]`, and repeat `[val; count]`.",
+    "Handle trailing commas with `$( $elem:expr ),* $(,)?`.",
+]
+
+[[exercises]]
+id = "17_macros/macro_patterns"
+name = "Macro Patterns"
+module = "17_macros"
+type = "implement_from_scratch"
+difficulty = "expert"
+base_xp = 20
+file = "17_macros/macro_patterns.rs"
+solution = "17_macros/solutions/macro_patterns.rs"
+order = 3
+description = "Implement macros using various designator types and repetition patterns."
+hints = [
+    "Use `stringify!($ident)` to convert an identifier to a string literal.",
+    "For counting expressions: `0 $( + { let _ = $e; 1 } )*` returns the count.",
+]
+
+# --- Module 18: Async Rust ---
+
+[[exercises]]
+id = "18_async_rust/async_basics"
+name = "Async Basics"
+module = "18_async_rust"
+type = "fix_compiler_error"
+difficulty = "expert"
+base_xp = 10
+file = "18_async_rust/async_basics.rs"
+solution = "18_async_rust/solutions/async_basics.rs"
+order = 1
+description = "Fix async/await syntax errors, missing awaits, and wrong return types."
+hints = [
+    "The keyword is `async`, not `asnc`. An async fn returns impl Future<Output = T>.",
+    "You must .await an async function call to get its value, not just call it.",
+]
+
+[[exercises]]
+id = "18_async_rust/futures_concept"
+name = "Futures Concept"
+module = "18_async_rust"
+type = "implement_from_scratch"
+difficulty = "expert"
+base_xp = 20
+file = "18_async_rust/futures_concept.rs"
+solution = "18_async_rust/solutions/futures_concept.rs"
+order = 2
+description = "Implement custom Future types with manual polling using Poll::Ready and Poll::Pending."
+hints = [
+    "ReadyFuture: store value in Option<T>, take() it on first poll, return Poll::Ready.",
+    "CountdownFuture: decrement count each poll, return Pending until 0, then Ready.",
+]
+
+[[exercises]]
+id = "18_async_rust/async_patterns"
+name = "Async Patterns"
+module = "18_async_rust"
+type = "fix_compiler_error"
+difficulty = "expert"
+base_xp = 10
+file = "18_async_rust/async_patterns.rs"
+solution = "18_async_rust/solutions/async_patterns.rs"
+order = 3
+description = "Fix common async mistakes: missing awaits, wrong return types, and Send bounds."
+hints = [
+    "Regular closures cannot use .await — use async blocks instead.",
+    "A function returning an async block should return `impl Future<Output = T>`, not T.",
+]
+
+[[exercises]]
+id = "18_async_rust/boss_async"
+name = "The Async Dimension"
+module = "18_async_rust"
+type = "boss_battle"
+difficulty = "expert"
+base_xp = 50
+file = "18_async_rust/boss_async.rs"
+solution = "18_async_rust/solutions/boss_async.rs"
+order = 4
+description = "Build an async task coordinator that manages and polls multiple futures to completion."
+flavor_text = "The Async Dimension bends time itself. Master futures to escape."
+hints = [
+    "Task implements Future: decrement remaining_polls each poll, return Ready when 0.",
+    "Coordinator: poll each task with Pin::new(&mut task).poll(cx), collect Ready results.",
+    "run_to_completion: loop calling poll_all() until pending_count() is 0.",
+    "Use noop_waker() to create a Context for manual polling.",
+]

@@ -1,0 +1,50 @@
+[package]
+name = "rust-game"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.80.0"
+description = "A gamified Rust learning CLI — exercises, XP, time trials, boss battles"
+license = "MIT"
+repository = "https://github.com/cheesecakeMafia/rust-game"
+
+[[bin]]
+name = "rust-game"
+path = "src/main.rs"
+
+[dependencies]
+# CLI argument parsing
+clap = { version = "4", features = ["derive"] }
+
+# TUI framework
+ratatui = "0.29"
+crossterm = "0.28"
+
+# File watching (no debouncer — we debounce manually for version compatibility)
+notify = "8.0"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8"
+
+# Error handling
+anyhow = "1.0"
+thiserror = "2.0"
+
+# Date/time
+chrono = { version = "0.4", features = ["serde"] }
+
+# Temporary directories for sandbox
+tempfile = "3"
+
+# Process group management (Unix)
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+# Platform-specific user data directory
+dirs = "6.0"
+
+[dev-dependencies]
+assert_cmd = "2.0"
+predicates = "3.1"
+tempfile = "3"
