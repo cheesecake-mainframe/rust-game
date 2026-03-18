@@ -155,10 +155,11 @@ pub fn verify_exercise(
     }
 
     // Step 3: Clippy (for code transformation exercises)
+    // --tests includes test targets so functions only used in #[cfg(test)] aren't flagged as dead code
     if method == VerificationMethod::CompileTestClippy {
         let clippy_result = cargo_command::run_cargo(
             sandbox.dir(),
-            &["clippy", "--", "-D", "warnings"],
+            &["clippy", "--tests", "--", "-D", "warnings"],
             timeout,
         )?;
 

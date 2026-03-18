@@ -125,6 +125,7 @@ solution = "02_variables_types/solutions/immutable_by_default.rs"
 order = 1
 description = "Learn why Rust variables are immutable by default."
 flavor_text = "Immutability isn't a limitation — it's a superpower."
+time_limit_secs = 60
 hints = [
     "In Rust, `let x = 5;` creates an immutable binding. You can't reassign it.",
     "Add the `mut` keyword: `let mut x = 5;` to make it mutable.",
@@ -232,6 +233,7 @@ solution = "04_ownership_moves/solutions/what_is_ownership.rs"
 order = 1
 description = "Understand that values have exactly one owner — and moves."
 flavor_text = "This is where Rust gets interesting."
+time_limit_secs = 120
 hints = [
     "When you assign a String to another variable, the value MOVES. The original variable is invalidated.",
     "To keep both variables usable, you need to explicitly .clone() the String.",
@@ -336,6 +338,7 @@ file = "05_borrowing_references/immutable_references.rs"
 solution = "05_borrowing_references/solutions/immutable_references.rs"
 order = 1
 description = "Use references to borrow values without taking ownership."
+time_limit_secs = 90
 hints = [
     "Change the function to take &String instead of String.",
     "At the call site, pass &s instead of s.",
@@ -758,6 +761,7 @@ file = "09_collections/strings.rs"
 solution = "09_collections/solutions/strings.rs"
 order = 2
 description = "Fix common String vs &str mistakes and UTF-8 indexing errors."
+time_limit_secs = 180
 hints = [
     "Use .chars().next() to get the first character — Rust strings are UTF-8, not byte arrays.",
     "push_str takes &str, push takes char — don't mix them up.",
@@ -842,6 +846,7 @@ file = "11_generics_traits/generic_functions.rs"
 solution = "11_generics_traits/solutions/generic_functions.rs"
 order = 1
 description = "Add trait bounds to generic function signatures to make them compile."
+time_limit_secs = 120
 hints = [
     "If a function prints with `{}`, the type needs `Display`. If it compares with `>`, it needs `PartialOrd`.",
     "Multiple bounds: `T: Display + PartialOrd + Clone`.",
