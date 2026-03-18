@@ -6,6 +6,7 @@ deps/
 
 # Persistent sandbox compilation cache
 .rust-game-cache/
+.rust-game-test-cache/
 
 # Player state (stored in user data dir, but fallback may be here)
 .rust-game-state.json
@@ -23,5 +24,12 @@ deps/
 # Temporary files
 *.tmp
 
+# Internal working documents
+project-plan.md
+TODO.md
+
 # Claude Code local settings
 .claude/
+
+# Platform compatibility notes (internal)
+PLATFORM_COMPAT.md
