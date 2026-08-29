@@ -338,6 +338,13 @@ impl App {
             if let Some((name, theme)) = &outcome.module_completed {
                 println!("  MODULE COMPLETE: {} — {}", name, theme);
             }
+            if let Some(err) = &outcome.save_error {
+                eprintln!(
+                    "  WARNING: progress could not be saved ({}). \
+                     This XP will be lost when you quit.",
+                    err
+                );
+            }
             println!(
                 "  Level {} | {}/{} exercises | Streak: {}",
                 self.state.player.level,

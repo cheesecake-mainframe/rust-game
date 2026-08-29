@@ -244,6 +244,13 @@ impl TuiApp {
         // format-on-save editors.
         if self.verify_rx.is_some() {
             self.verify_pending = true;
+            // A one-shot press would otherwise look like a dead key: it queues
+            // nothing the student can see, and the pending flag only re-fires
+            // for watch mode.
+            if kind == VerifyKind::OneShot {
+                self.verify_output =
+                    Some("A verification is already running — waiting for it...".to_string());
+            }
             return;
         }
 
@@ -480,23 +487,37 @@ impl TuiApp {
     /// Render an [`Outcome`] for display. Reads the award off the outcome, so
     /// it cannot claim XP the state layer declined.
     fn format_outcome(&self, outcome: &award::Outcome) -> String {
+        self.format_outcome_with("PASSED!", outcome)
+    }
+
+    /// As [`TuiApp::format_outcome`] but with a caller-supplied lead-in, so the
+    /// quiz screen does not announce "PASSED!" at someone who answered a
+    /// multiple-choice question.
+    fn format_outcome_with(&self, lead: &str, outcome: &award::Outcome) -> String {
         let head = if outcome.is_new {
             let a = &outcome.award;
             format!(
-                "PASSED! +{} XP (base: {}, first-try: {}, time: {}, streak: {:.2}x)",
-                a.total, a.base, a.first_try_bonus, a.time_trial_bonus, a.streak_multiplier
+                "{} +{} XP (base: {}, first-try: {}, time: {}, streak: {:.2}x)",
+                lead, a.total, a.base, a.first_try_bonus, a.time_trial_bonus, a.streak_multiplier
             )
         } else {
-            "PASSED! (already completed — no additional XP)".to_string()
+            format!("{} (already completed — no additional XP)", lead)
         };
-        format!(
+        let body = format!(
             "{}\nLevel {} | {}/{} exercises | Streak: {}",
             head,
             self.app.state.player.level,
             self.app.state.exercises_completed(),
             self.app.catalog.total_exercises(),
             self.app.streak.current,
-        )
+        );
+        match &outcome.save_error {
+            Some(e) => format!(
+                "{}\nWARNING: progress could not be saved ({}) — this XP will be lost on quit.",
+                body, e
+            ),
+            None => body,
+        }
     }
 }
 
@@ -858,7 +879,7 @@ fn handle_mcq_key(key: crossterm::event::KeyEvent, tui: &mut TuiApp, exercise_id
                     // and no start time — only the award path is shared.
                     let outcome = award::award_completion(&mut tui.app, &exercise, None);
                     tui.apply_outcome(&outcome);
-                    tui.mcq_feedback = Some(format!("Correct! {}", tui.format_outcome(&outcome)));
+                    tui.mcq_feedback = Some(tui.format_outcome_with("Correct!", &outcome));
                     tui.mcq_correct = Some(true);
                 } else {
                     tui.app.state.record_attempt(exercise_id);

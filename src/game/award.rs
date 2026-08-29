@@ -22,6 +22,10 @@ pub struct Outcome {
     /// `(module name, theme name)` when this completion finished the module.
     pub module_completed: Option<(String, String)>,
     pub elapsed: Option<Duration>,
+    /// Set when the award could not be written to disk. The XP is real in
+    /// memory but will not survive a restart, and the student needs telling —
+    /// silently reporting "+15 XP" over a failed save is its own small lie.
+    pub save_error: Option<String>,
 }
 
 /// The award nobody earned. `streak_multiplier` is 1.0 rather than 0.0 because
@@ -80,13 +84,14 @@ pub fn award_completion(
         .complete_exercise(exercise_id, award.total, elapsed.map(|d| d.as_secs()));
 
     if !is_new {
-        let _ = app.save();
+        let save_error = app.save().err().map(|e| format!("{:#}", e));
         return Outcome {
             is_new: false,
             award: no_award(),
             level_up: None,
             module_completed: None,
             elapsed,
+            save_error,
         };
     }
 
@@ -100,7 +105,7 @@ pub fn award_completion(
     let level_up = (new_level > old_level).then_some((old_level, new_level));
     let module_completed = mark_module_if_complete(app, &exercise.module_id);
 
-    let _ = app.save();
+    let save_error = app.save().err().map(|e| format!("{:#}", e));
 
     Outcome {
         is_new: true,
@@ -108,6 +113,7 @@ pub fn award_completion(
         level_up,
         module_completed,
         elapsed,
+        save_error,
     }
 }
 
@@ -188,6 +194,17 @@ mod tests {
         assert_eq!(
             app.state.player.xp, xp_after_first,
             "XP must not move on the second award"
+        );
+    }
+
+    #[test]
+    fn a_successful_award_reports_no_save_error() {
+        let mut app = App::new_for_testing().unwrap();
+        let ex = first_exercise(&app);
+        let outcome = award_completion(&mut app, &ex, None);
+        assert!(
+            outcome.save_error.is_none(),
+            "a normal award must not report a persistence failure"
         );
     }
 
