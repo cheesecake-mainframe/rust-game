@@ -311,7 +311,7 @@ mod tests {
 
     #[test]
     fn test_run_single_task() {
-        let mut future = run_single_task("test", 0, "ok");
+        let mut future = Box::pin(run_single_task("test", 0, "ok"));
         let result = poll_once(&mut future);
         assert_eq!(result, Poll::Ready(TaskResult {
             task_name: "test".to_string(),
@@ -322,10 +322,10 @@ mod tests {
 
     #[test]
     fn test_run_sequential() {
-        let mut future = run_sequential(
+        let mut future = Box::pin(run_sequential(
             "first", 0, "a",
             "second", 0, "b",
-        );
+        ));
         let result = poll_once(&mut future);
         assert_eq!(result, Poll::Ready((
             TaskResult {

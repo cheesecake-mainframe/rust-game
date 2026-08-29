@@ -223,7 +223,7 @@ mod tests {
 
     #[test]
     fn test_async_add() {
-        let mut future = async_add(3, 4);
+        let mut future = Box::pin(async_add(3, 4));
         let result = poll_once(&mut future);
         assert_eq!(result, Poll::Ready(7));
     }
@@ -232,7 +232,7 @@ mod tests {
     fn test_chain_futures() {
         let a = ReadyFuture::new(10);
         let b = ReadyFuture::new(20);
-        let mut future = chain_futures(a, b);
+        let mut future = Box::pin(chain_futures(a, b));
         let result = poll_once(&mut future);
         assert_eq!(result, Poll::Ready(30));
     }

@@ -321,7 +321,10 @@ mod tests {
 
     #[test]
     fn test_run_single_task() {
-        let mut future = run_single_task("test", 0, "ok");
+        // `async fn` bodies are `!Unpin` (they may hold a reference across an
+        // await point, so moving one after polling would dangle). `Box::pin`
+        // pins it on the heap, and `Pin<Box<F>>` *is* `Unpin`.
+        let mut future = Box::pin(run_single_task("test", 0, "ok"));
         let result = poll_once(&mut future);
         assert_eq!(result, Poll::Ready(TaskResult {
             task_name: "test".to_string(),
@@ -332,10 +335,13 @@ mod tests {
 
     #[test]
     fn test_run_sequential() {
-        let mut future = run_sequential(
+        // `async fn` bodies are `!Unpin` (they may hold a reference across an
+        // await point, so moving one after polling would dangle). `Box::pin`
+        // pins it on the heap, and `Pin<Box<F>>` *is* `Unpin`.
+        let mut future = Box::pin(run_sequential(
             "first", 0, "a",
             "second", 0, "b",
-        );
+        ));
         let result = poll_once(&mut future);
         assert_eq!(result, Poll::Ready((
             TaskResult {
