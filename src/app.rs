@@ -6,6 +6,7 @@ use anyhow::{bail, Context, Result};
 
 use crate::exercise::catalog::ExerciseCatalog;
 use crate::exercise::types::*;
+use crate::exercise::workspace::Workspace;
 use crate::game::{progress, streak::StreakState, xp};
 use crate::runner::{pipeline, sandbox};
 use crate::state::game_state::GameState;
@@ -18,6 +19,8 @@ pub struct App {
     pub streak: StreakState,
     pub exercises_dir: PathBuf,
     pub cache_dir: PathBuf,
+    /// Maps tracked exercise templates to the student's gitignored working copies.
+    pub workspace: Workspace,
 }
 
 impl App {
@@ -27,6 +30,11 @@ impl App {
     /// 1. `RUST_GAME_DIR` env var (explicit override — looks for `$RUST_GAME_DIR/exercises/`)
     /// 2. `./exercises/` in the current working directory (primary workflow)
     /// 3. Relative to the executable (handles PATH / symlink scenarios)
+    ///
+    /// The `workspace/` directory always sits *beside* whichever `exercises/`
+    /// directory this resolves to — not in the current working directory. If
+    /// resolution falls through to the executable-relative branch, that may be
+    /// a read-only install location; `RUST_GAME_DIR` is the escape hatch.
     fn find_exercises_dir() -> Result<PathBuf> {
         // 1. Env var override
         if let Ok(root) = std::env::var("RUST_GAME_DIR") {
@@ -77,6 +85,12 @@ impl App {
     pub fn init() -> Result<Self> {
         let exercises_dir = Self::find_exercises_dir()?;
         let cache_dir = PathBuf::from(".rust-game-cache");
+        let workspace = Workspace::new(
+            exercises_dir
+                .parent()
+                .unwrap_or(std::path::Path::new("."))
+                .join("workspace"),
+        );
 
         let catalog = ExerciseCatalog::load(&exercises_dir)
             .context("Failed to load exercise catalog")?;
@@ -96,6 +110,7 @@ impl App {
             streak,
             exercises_dir,
             cache_dir,
+            workspace,
         })
     }
 
@@ -104,6 +119,7 @@ impl App {
     pub fn new_for_testing() -> Result<Self> {
         let exercises_dir = PathBuf::from("exercises");
         let cache_dir = PathBuf::from(".rust-game-test-cache");
+        let workspace = Workspace::new(PathBuf::from(".rust-game-test-workspace"));
 
         let catalog = ExerciseCatalog::load(&exercises_dir)
             .context("Failed to load exercise catalog")?;
@@ -117,6 +133,7 @@ impl App {
             streak,
             exercises_dir,
             cache_dir,
+            workspace,
         })
     }
 
@@ -255,9 +272,12 @@ impl App {
 
         println!("Verifying: {} ...", exercise.name);
 
+        // Verify the student's working copy, materializing it on first use.
+        let source = self.workspace.ensure_materialized(&exercise)?;
+
         let run_id = pipeline::next_run_id();
         let start = Instant::now();
-        let result = pipeline::verify_exercise(&exercise, &self.cache_dir, run_id)?;
+        let result = pipeline::verify_exercise(&exercise, &source, &self.cache_dir, run_id)?;
 
         if result.passed() {
             let elapsed_secs = start.elapsed().as_secs();
@@ -355,9 +375,11 @@ impl App {
         for ex in self.catalog.exercises() {
             let status = self.exercise_status(&ex.id);
             if status == ExerciseStatus::Available || status == ExerciseStatus::InProgress {
+                // Materialize so the path we print actually exists.
+                let working = self.workspace.ensure_materialized(ex)?;
                 println!("Next exercise: {} ({})", ex.name, ex.id);
                 println!("  Type: {:?}", ex.exercise_type);
-                println!("  File: {}", ex.file_path.display());
+                println!("  File: {}", working.display());
                 println!("\n  Run: rust-game verify {}", ex.id);
                 if !ex.hints.is_empty() {
                     println!("  Hints: rust-game hint {}", ex.id);
@@ -377,13 +399,38 @@ impl App {
             self.streak = StreakState::new();
             self.save()?;
             println!("All progress has been reset.");
+            println!(
+                "Your code in {} was left untouched — delete it manually if you want a clean slate.",
+                self.workspace.root().display()
+            );
             return Ok(());
         }
 
         if let Some(id) = exercise_id {
-            self.state.exercises.remove(id);
+            let exercise = self
+                .catalog
+                .get_exercise(id)
+                .context(format!("Exercise not found: '{}'", id))?
+                .clone();
+
+            // Say what is about to happen before doing it — this destroys the
+            // student's edits for that exercise.
+            let target = self.workspace.working_path(&exercise);
+            if self.workspace.is_materialized(&exercise) {
+                println!(
+                    "Overwriting your working copy with the original exercise:\n  {}",
+                    target.display()
+                );
+            } else {
+                println!("Creating a fresh copy at:\n  {}", target.display());
+            }
+
+            let restored = self.workspace.reset(&exercise)?;
+            self.state.forget_exercise(id);
             self.save()?;
-            println!("Exercise '{}' has been reset.", id);
+
+            println!("Done. Progress for '{}' has been cleared.", id);
+            debug_assert_eq!(restored, target);
             return Ok(());
         }
 
@@ -398,8 +445,9 @@ impl App {
             .get_exercise(exercise_id)
             .context(format!("Exercise not found: '{}'", exercise_id))?;
 
-        let source = std::fs::read_to_string(&exercise.file_path)
-            .with_context(|| format!("Failed to read: {}", exercise.file_path.display()))?;
+        let source_path = self.workspace.source_path(exercise);
+        let source = std::fs::read_to_string(&source_path)
+            .with_context(|| format!("Failed to read: {}", source_path.display()))?;
 
         let context = crate::ai::context_formatter::format_ai_context(
             exercise,
@@ -411,6 +459,62 @@ impl App {
 
         println!("{}", context);
         Ok(())
+    }
+
+    /// Print a module's lesson.
+    ///
+    /// Accepts a module ID or any exercise ID inside that module, so an AI
+    /// tutor can pass through whatever the student typed.
+    pub fn cmd_lesson(&mut self, module_ref: &str, mark_read: bool) -> Result<()> {
+        let module_id = self.resolve_module_id(module_ref)?;
+        let module = self
+            .catalog
+            .get_module(&module_id)
+            .context(format!("Module not found: '{}'", module_ref))?
+            .clone();
+
+        let loaded = crate::lesson::load(&module)?;
+        match &loaded {
+            Some(lesson) => {
+                println!("{}", lesson.body);
+            }
+            None => {
+                println!(
+                    "No lesson written yet for {} — {}.",
+                    module.name, module.theme_name
+                );
+                match &module.book_url {
+                    Some(url) => println!("Read the Rust Book chapter instead: {}", url),
+                    None => println!("See https://doc.rust-lang.org/book/ for background."),
+                }
+            }
+        }
+
+        if mark_read {
+            self.state.mark_lesson_read(&module_id);
+            self.save()?;
+            let label = loaded
+                .as_ref()
+                .map(|l| l.title.clone())
+                .unwrap_or_else(|| module.name.clone());
+            println!("\n(Lesson \"{}\" marked as read.)", label);
+        }
+
+        Ok(())
+    }
+
+    /// Resolve a module ID or an exercise ID to a module ID.
+    fn resolve_module_id(&self, module_ref: &str) -> Result<String> {
+        if self.catalog.get_module(module_ref).is_some() {
+            return Ok(module_ref.to_string());
+        }
+        if let Some(ex) = self.catalog.get_exercise(module_ref) {
+            return Ok(ex.module_id.clone());
+        }
+        bail!(
+            "No module or exercise matches '{}'. Try `rust-game list` to see the module IDs.",
+            module_ref
+        )
     }
 
     /// Show the reference solution for an exercise.

@@ -41,13 +41,11 @@ fn performance_first_vs_incremental_compile() {
         .expect("match_basics exercise not found");
 
     // Use the solution file for a passing verification
-    let mut solution_exercise = exercise.clone();
-    solution_exercise.file_path = exercises_root.join(&exercise.solution_path);
 
     // First compile (cold cache)
     let start = Instant::now();
     let run_id = pipeline::next_run_id();
-    let result = pipeline::verify_exercise(&solution_exercise, &cache, run_id)
+    let result = pipeline::verify_exercise(exercise, &exercise.solution_path, &cache, run_id)
         .expect("Verification failed");
     let first_compile_ms = start.elapsed().as_millis();
     assert!(result.passed(), "Solution should pass");
@@ -55,7 +53,7 @@ fn performance_first_vs_incremental_compile() {
     // Incremental compile (warm cache, same file)
     let start = Instant::now();
     let run_id = pipeline::next_run_id();
-    let result = pipeline::verify_exercise(&solution_exercise, &cache, run_id)
+    let result = pipeline::verify_exercise(exercise, &exercise.solution_path, &cache, run_id)
         .expect("Verification failed");
     let incremental_ms = start.elapsed().as_millis();
     assert!(result.passed(), "Solution should pass on re-verify");
@@ -106,11 +104,8 @@ fn performance_sandbox_disk_usage() {
         .find(|e| e.id == "01_getting_started/hello_world")
         .expect("hello_world exercise not found");
 
-    let mut solution_exercise = exercise.clone();
-    solution_exercise.file_path = exercises_root.join(&exercise.solution_path);
-
     let run_id = pipeline::next_run_id();
-    pipeline::verify_exercise(&solution_exercise, &cache, run_id)
+    pipeline::verify_exercise(exercise, &exercise.solution_path, &cache, run_id)
         .expect("Verification failed");
 
     // Measure disk usage
@@ -162,10 +157,7 @@ fn performance_multi_exercise_benchmark() {
             continue;
         }
 
-        let mut solution_exercise = (*exercise).clone();
-        solution_exercise.file_path = exercises_root.join(&exercise.solution_path);
-
-        if !solution_exercise.file_path.exists() {
+        if !exercise.solution_path.exists() {
             println!("{:<45} MISSING SOLUTION", exercise.id);
             continue;
         }
@@ -173,13 +165,13 @@ fn performance_multi_exercise_benchmark() {
         // First compile
         let start = Instant::now();
         let run_id = pipeline::next_run_id();
-        let result = pipeline::verify_exercise(&solution_exercise, &cache, run_id);
+        let result = pipeline::verify_exercise(exercise, &exercise.solution_path, &cache, run_id);
         let first_ms = start.elapsed().as_millis();
 
         // Incremental compile
         let start = Instant::now();
         let run_id = pipeline::next_run_id();
-        let _ = pipeline::verify_exercise(&solution_exercise, &cache, run_id);
+        let _ = pipeline::verify_exercise(exercise, &exercise.solution_path, &cache, run_id);
         let incr_ms = start.elapsed().as_millis();
 
         let status = match result {

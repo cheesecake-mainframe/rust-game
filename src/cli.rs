@@ -61,6 +61,15 @@ pub enum Commands {
         exercise: String,
     },
 
+    /// Print a module's lesson
+    Lesson {
+        /// Module ID (e.g. "04_ownership_moves"), or any exercise ID within it
+        module: String,
+        /// Also mark the lesson as read. AI tutors run this after teaching.
+        #[arg(long)]
+        mark_read: bool,
+    },
+
     /// Show the reference solution for an exercise
     Solution {
         /// Exercise ID

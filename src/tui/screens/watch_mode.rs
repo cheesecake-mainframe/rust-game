@@ -52,7 +52,7 @@ pub fn render(frame: &mut Frame, tui: &TuiApp, exercise_id: &str) {
                 Line::from(vec![
                     Span::styled("  File: ", Style::new().fg(Color::DarkGray)),
                     Span::styled(
-                        exercise.file_path.display().to_string(),
+                        tui.app.workspace.working_path(exercise).display().to_string(),
                         Style::new().fg(Color::Yellow),
                     ),
                 ]),

@@ -19,6 +19,7 @@ This is not a textbook. This is a game where the exercises ARE the game.
 - **Watch mode** — save your file, verification runs automatically, XP awarded instantly
 - **Boss battles** — multi-concept challenges that combine several topics
 - **Time trials** — bonus XP if you solve exercises under the time limit
+- **Lessons before exercises** — one authored lesson per module, readable in the TUI or taught conversationally by Claude Code, Codex, or Gemini via `/lesson`
 - **AI tutor integration** — `hint-ai` command formats your exercise context for pasting into any AI chat
 - **Persistent progress** — your XP, level, and streak survive across sessions
 
@@ -78,10 +79,19 @@ Any exercise can also be a **time trial** — bonus +15 XP if solved under the t
 
 1. **Launch the TUI** — run `rust-game` to see the dashboard with your module map, XP, level, and streak
 2. **Pick a module** — navigate with `j/k` and press `Enter`
-3. **Select an exercise** — read the instructions, open the `.rs` file in your editor
-4. **Enter watch mode** — press `w` and the tool watches your file for changes
-5. **Edit and save** — verification runs automatically. If tests pass, you earn XP
-6. **Level up** — progress through modules, unlock new tiers, maintain your streak
+3. **Read the lesson** — press `l`. Modules you haven't read are flagged. Press `m` to mark it read
+4. **Select an exercise** — read the instructions, open the file in your editor
+5. **Enter watch mode** — press `w` and the tool watches your file for changes
+6. **Edit and save** — verification runs automatically. If tests pass, you earn XP
+7. **Level up** — progress through modules, unlock new tiers, maintain your streak
+
+### Where your code lives
+
+`exercises/` holds pristine templates that stay tracked in git. The first time you open
+an exercise, your personal copy is created under `workspace/`, which is gitignored — so
+`git status` stays clean no matter how much you write, and `rust-game reset --exercise
+<id>` restores the original with a file copy. Always edit the `workspace/` path; the
+game prints it for you.
 
 ```
 +--------------------------------------------------+
@@ -126,6 +136,11 @@ rust-game is designed to work with AI coding assistants as your Rust tutor. The 
 | [Codex CLI](https://github.com/openai/codex) | `AGENTS.md` | Works automatically |
 | [Gemini CLI](https://github.com/google-gemini/gemini-cli) | `GEMINI.md` | Works automatically |
 
+Each tool also ships a project-scoped `/lesson` skill (`.claude/skills/`, `.codex/skills/`,
+`.gemini/skills/`). Run `/lesson 04_ownership_moves` and the agent teaches that module's
+lesson conversationally, answers your follow-up questions, and hands you the first
+exercise. The shared teaching protocol lives in the context files above.
+
 Use `rust-game hint-ai <exercise>` to generate a formatted context block with your current code, compiler errors, hints, and progress — paste it into any AI chat for targeted help.
 
 No AI tool is required. Exercises include progressive hints you can reveal with `h`.
@@ -134,7 +149,7 @@ No AI tool is required. Exercises include progressive hints you can reveal with 
 
 ## Prerequisites
 
-- **Rust** (1.80.0 or newer) — install via [rustup.rs](https://rustup.rs)
+- **Rust** (1.88.0 or newer) — install via [rustup.rs](https://rustup.rs)
 - **git** — to clone this repo
 - A terminal and a text editor
 
@@ -167,6 +182,7 @@ rust-game list         List all modules and exercises
 rust-game verify ID    Verify a single exercise
 rust-game hint ID      Show progressive hints
 rust-game hint-ai ID   Format context for AI tutor
+rust-game lesson MOD   Print a module's lesson (--mark-read to mark it read)
 rust-game solution ID  Show the reference solution
 rust-game stats        Show your progress
 rust-game next         Jump to the next available exercise
@@ -180,6 +196,8 @@ rust-game clean-cache  Wipe compilation caches
 |-----|--------|
 | `j/k` | Navigate up/down |
 | `Enter` | Select module/exercise |
+| `l` | Read the module's lesson |
+| `m` | Mark a lesson as read |
 | `w` | Enter watch mode |
 | `v` | Verify exercise |
 | `h` | Reveal next hint |

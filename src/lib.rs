@@ -1,5 +1,6 @@
 pub mod app;
 pub mod exercise;
+pub mod lesson;
 pub mod runner;
 pub mod watcher;
 pub mod game;

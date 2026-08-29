@@ -82,6 +82,58 @@ hints = [
 - `custom_checks = [{ check_type = "no_clone", message = "..." }]` — for optimization exercises
 - `multiple_choice = [{ label = "A", text = "...", correct = true }, ...]` — for MCQ exercises
 
+## Adding a Lesson
+
+Each module has one lesson the student reads before attempting its exercises.
+Lessons live in `exercises/lessons/<module_id>.md` and are pure markdown — no front
+matter. Metadata goes in `exercises/info.toml` under that module's `[[modules]]`
+entry:
+
+```toml
+[[modules]]
+id = "04_ownership_moves"
+# ... existing fields ...
+lesson = "lessons/04_ownership_moves.md"
+book_url = "https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html"
+concepts = ["move semantics", "Copy", "Clone", "drop"]
+```
+
+Content validation fails if `lesson` names a file that does not exist, so add the key
+and the file together.
+
+### House style
+
+Binding on every lesson, so the set reads as one voice.
+
+**Audience.** A competent Python/JS/TS developer. Assume they know loops, functions,
+closures, async/await, modules, and classes. Assume they know nothing about ownership,
+borrowing, lifetimes, or traits.
+
+**Length.** 500-800 words. Long enough to teach, short enough to read before practicing.
+
+**Structure**, in this order:
+
+1. `# Title` as the very first line — the loader extracts it as the lesson title.
+2. **Hook** — the concrete thing that will confuse them, stated up front.
+3. **Coming from Python/JS** — how their language does it, then how Rust differs and why.
+4. **The rule** — plainly stated, numbered if there is more than one.
+5. **Worked example** — a short, complete, compiling snippet.
+6. **The error you will hit** — the most likely mistake and the *real, verbatim* `rustc`
+   output for it.
+7. **What's next** — one or two lines naming the module's exercises.
+8. `Source: <url>` — the Book chapter actually used.
+
+**Non-negotiables.**
+
+- Every snippet must compile. Verify against `edition = "2021"`, which is what
+  `src/runner/sandbox.rs` uses — not the 2024 default from `cargo new`.
+- Section 6 must quote genuine captured compiler output, never a paraphrase. This is
+  the section that makes a lesson worth reading: it is what turns an unfamiliar error
+  into a recognized one.
+- Teach with **different examples than the exercise uses**. Explaining that `println!`
+  is a macro is the point; pasting a fixed `hello_world.rs` defeats it.
+- Direct second person. Explain *why* Rust made a design choice; never "just do X".
+
 ## Exercise Types
 
 | Type | info.toml value | Verification | When to use |

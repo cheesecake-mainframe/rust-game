@@ -5,6 +5,7 @@ mod watch_mode;
 mod stats;
 mod multiple_choice;
 mod ai_context;
+mod lesson;
 
 use ratatui::prelude::*;
 use super::ui::{TuiApp, Screen};
@@ -19,6 +20,7 @@ pub fn render(frame: &mut Frame, tui: &TuiApp) {
         Screen::Stats => stats::render(frame, tui),
         Screen::MultipleChoice(exercise_id) => multiple_choice::render(frame, tui, exercise_id),
         Screen::AiContext(exercise_id) => ai_context::render(frame, tui, exercise_id),
+        Screen::Lesson(module_id) => lesson::render(frame, tui, module_id),
     }
 
     // Celebration overlays render on top of any screen

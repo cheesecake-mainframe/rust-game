@@ -73,9 +73,18 @@ fn default_timeout(exercise: &Exercise) -> Duration {
 /// Verify an exercise by running the appropriate pipeline steps.
 ///
 /// This is the main entry point for exercise verification.
+///
+/// `source_path` is the file to actually verify, passed explicitly rather than
+/// taken from `exercise.file_path`. During normal play that is the student's
+/// working copy under `workspace/`; the solution-verification test passes the
+/// reference solution instead. Making it a parameter means the compiler
+/// enumerates every call site, so a caller cannot silently verify the pristine
+/// template and award XP for work that was never done.
+///
 /// `cache_root` is the `.rust-game-cache/` directory.
 pub fn verify_exercise(
     exercise: &Exercise,
+    source_path: &Path,
     cache_root: &Path,
     run_id: u64,
 ) -> Result<VerificationResult> {
@@ -85,7 +94,7 @@ pub fn verify_exercise(
 
     // Set up sandbox
     let sandbox = Sandbox::for_exercise(cache_root, exercise)?;
-    sandbox.prepare_exercise(exercise)?;
+    sandbox.prepare(source_path, &exercise.extra_files)?;
 
     let method = exercise.exercise_type.verification_method();
 
@@ -183,7 +192,7 @@ pub fn verify_exercise(
 
     // Step 4: Custom source-level checks (for optimization exercises)
     if method == VerificationMethod::CompileTestCustom && !exercise.custom_checks.is_empty() {
-        let source = fs::read_to_string(&exercise.file_path)?;
+        let source = fs::read_to_string(source_path)?;
         let check_results = custom_checks::run_custom_checks(&source, &exercise.custom_checks);
         let step_start = Instant::now();
 
@@ -273,7 +282,7 @@ mod tests {
             ExerciseType::FixCompilerError,
         );
 
-        let result = verify_exercise(&ex, &cache, 1).unwrap();
+        let result = verify_exercise(&ex, &ex.file_path, &cache, 1).unwrap();
         assert!(result.passed(), "Expected pass, got: {:?}", result.steps);
         assert_eq!(result.steps.len(), 1); // compile only
         assert_eq!(result.steps[0].step_name, "compile");
@@ -290,7 +299,7 @@ mod tests {
             ExerciseType::FixCompilerError,
         );
 
-        let result = verify_exercise(&ex, &cache, 1).unwrap();
+        let result = verify_exercise(&ex, &ex.file_path, &cache, 1).unwrap();
         assert!(!result.passed());
         assert_eq!(result.status, VerificationStatus::Failed);
     }
@@ -315,7 +324,7 @@ mod tests {
             ExerciseType::DebugLogicBug,
         );
 
-        let result = verify_exercise(&ex, &cache, 1).unwrap();
+        let result = verify_exercise(&ex, &ex.file_path, &cache, 1).unwrap();
         assert!(result.passed(), "Expected pass, got: {:?}", result.steps);
         assert_eq!(result.steps.len(), 2); // compile + test
     }
@@ -340,7 +349,7 @@ mod tests {
             ExerciseType::DebugLogicBug,
         );
 
-        let result = verify_exercise(&ex, &cache, 1).unwrap();
+        let result = verify_exercise(&ex, &ex.file_path, &cache, 1).unwrap();
         assert!(!result.passed());
         assert_eq!(result.steps.len(), 2); // compile passed, test failed
         assert!(result.steps[0].success); // compile ok

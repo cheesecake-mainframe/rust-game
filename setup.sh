@@ -2,7 +2,7 @@
 #
 # setup.sh — rust-game setup
 #
-# Checks prerequisites (git, rustc >= 1.80.0, cargo), clones external
+# Checks prerequisites (git, rustc >= 1.88.0, cargo), clones external
 # reference material into deps/, and builds the project.
 # Safe to run multiple times.
 
@@ -41,8 +41,8 @@ echo "  git:   $(git --version)"
 echo "  rustc: $RUST_VERSION"
 echo "  cargo: $(cargo --version)"
 
-# Check minimum Rust version (1.80.0)
-MIN_VERSION="1.80.0"
+# Check minimum Rust version (1.88.0)
+MIN_VERSION="1.88.0"
 CURRENT_VERSION=$(rustc --version | awk '{print $2}')
 if [ "$(printf '%s\n' "$MIN_VERSION" "$CURRENT_VERSION" | sort -V | head -n1)" != "$MIN_VERSION" ]; then
     echo "Error: Rust $MIN_VERSION or later is required. You have $CURRENT_VERSION."

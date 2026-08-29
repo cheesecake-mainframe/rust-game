@@ -8,7 +8,7 @@ use super::game_state::GameState;
 const STATE_DIR_NAME: &str = "rust-game";
 const STATE_FILE_NAME: &str = "state.json";
 const BACKUP_FILE_NAME: &str = "state.json.bak";
-const CURRENT_VERSION: u32 = 1;
+const CURRENT_VERSION: u32 = 2;
 
 /// Determine the state file path.
 ///
@@ -142,10 +142,13 @@ fn backup_state(path: &Path) -> Result<()> {
 /// so a version 1 state file will pass through every intermediate migration
 /// to reach the current version.
 fn migrate_state(mut state: GameState) -> GameState {
-    // Migration chain: apply each step in order
-    // Currently version 1 is the only version, so this is a no-op placeholder.
-    // When CURRENT_VERSION becomes 2, add:
-    //   if state.version == 1 { /* migrate v1 → v2 fields */; state.version = 2; }
+    // Migration chain: apply each step in order.
+    // v1 → v2 added `lessons`. Nothing to move: `#[serde(default)]` on the field
+    // already supplied an empty map when the v1 file was parsed, so the step is
+    // just the version bump. The caller backs the file up before we get here.
+    if state.version == 1 {
+        state.version = 2;
+    }
     // When CURRENT_VERSION becomes 3, add:
     //   if state.version == 2 { /* migrate v2 → v3 fields */; state.version = 3; }
 
@@ -156,6 +159,28 @@ fn migrate_state(mut state: GameState) -> GameState {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_v1_state_migrates_to_v2_with_empty_lessons() {
+        // A version-1 file predates the `lessons` map entirely.
+        let json = r#"{"version": 1, "player": {"xp": 50, "level": 2, "current_streak": 3,
+            "best_streak": 3, "total_time_played_secs": 0, "last_exercise_at": null},
+            "exercises": {}, "modules": {}}"#;
+
+        let state: GameState = serde_json::from_str(json)
+            .expect("serde(default) should let a v1 file parse before migration");
+        assert_eq!(state.version, 1);
+        assert!(state.lessons.is_empty());
+
+        let migrated = migrate_state(state);
+        assert_eq!(migrated.version, CURRENT_VERSION);
+        assert_eq!(migrated.version, 2);
+        assert!(migrated.lessons.is_empty());
+        // Progress must survive the migration untouched.
+        assert_eq!(migrated.player.xp, 50);
+        assert_eq!(migrated.player.level, 2);
+        assert_eq!(migrated.player.current_streak, 3);
+    }
 
     #[test]
     fn test_save_and_load_roundtrip() {

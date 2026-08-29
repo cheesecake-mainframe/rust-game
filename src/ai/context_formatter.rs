@@ -17,6 +17,10 @@ pub fn format_ai_context(
     let module = catalog.get_module(&exercise.module_id);
     let module_name = module.map(|m| m.name.as_str()).unwrap_or("Unknown");
     let module_theme = module.map(|m| m.theme_name.as_str()).unwrap_or("");
+    let module_concepts = module
+        .map(|m| m.concepts.join(", "))
+        .filter(|c| !c.is_empty())
+        .unwrap_or_else(|| "(not listed)".to_string());
 
     let output_section = match verification_result {
         Some(result) => {
@@ -54,6 +58,7 @@ pub fn format_ai_context(
 **Type:** {:?}
 **Difficulty:** {:?}
 **Module:** {} — {}
+**Module concepts:** {}
 
 ### Description
 {}
@@ -80,6 +85,7 @@ Level {} | {}/{} exercises completed
         exercise.difficulty,
         module_name,
         module_theme,
+        module_concepts,
         exercise.description,
         exercise_source,
         output_section,

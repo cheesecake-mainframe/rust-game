@@ -47,16 +47,18 @@ impl Sandbox {
         &self.dir
     }
 
-    /// Copy the exercise file into the sandbox for verification.
+    /// Copy a source file into the sandbox for verification.
     ///
-    /// If the exercise file doesn't contain `fn main`, appends a dummy
-    /// `fn main() {}` so it compiles as a binary crate (needed for cargo test).
-    pub fn prepare_exercise(&self, exercise: &Exercise) -> Result<()> {
-        let content = fs::read_to_string(&exercise.file_path).with_context(|| {
-            format!(
-                "Exercise file not found: {}",
-                exercise.file_path.display()
-            )
+    /// `source_path` is passed explicitly rather than read from the exercise,
+    /// because the file to verify depends on the caller: the student's working
+    /// copy under `workspace/` during normal play, or the reference solution
+    /// when the solution-verification test runs.
+    ///
+    /// If the source doesn't contain `fn main`, appends a dummy `fn main() {}`
+    /// so it compiles as a binary crate (needed for cargo test).
+    pub fn prepare(&self, source_path: &Path, extra_files: &[PathBuf]) -> Result<()> {
+        let content = fs::read_to_string(source_path).with_context(|| {
+            format!("Exercise file not found: {}", source_path.display())
         })?;
 
         let src_dir = self.dir.join("src");
@@ -71,7 +73,7 @@ impl Sandbox {
             .context("Failed to write exercise to sandbox")?;
 
         // Copy extra files to src/
-        for extra in &exercise.extra_files {
+        for extra in extra_files {
             let filename = extra
                 .file_name()
                 .context("Extra file has no filename")?;
@@ -211,7 +213,7 @@ mod tests {
         let exercise = make_test_exercise(tmp.path());
 
         let sandbox = Sandbox::for_exercise(&cache_root, &exercise).unwrap();
-        sandbox.prepare_exercise(&exercise).unwrap();
+        sandbox.prepare(&exercise.file_path, &exercise.extra_files).unwrap();
 
         let main_content = fs::read_to_string(sandbox.dir().join("src/main.rs")).unwrap();
         assert!(main_content.contains("fn main()"));
@@ -246,7 +248,7 @@ mod tests {
         .unwrap();
 
         let sandbox = Sandbox::for_exercise(&cache_root, &exercise).unwrap();
-        sandbox.prepare_exercise(&exercise).unwrap();
+        sandbox.prepare(&exercise.file_path, &exercise.extra_files).unwrap();
 
         let main_content = fs::read_to_string(sandbox.dir().join("src/main.rs")).unwrap();
         assert!(

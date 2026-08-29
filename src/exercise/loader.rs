@@ -28,6 +28,12 @@ struct TomlModule {
     order: u32,
     #[serde(default)]
     prerequisites: Vec<String>,
+    #[serde(default)]
+    lesson: Option<String>,
+    #[serde(default)]
+    book_url: Option<String>,
+    #[serde(default)]
+    concepts: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -71,7 +77,7 @@ pub fn load_manifest(exercises_dir: &Path) -> Result<(Vec<Module>, Vec<Exercise>
     let manifest: TomlManifest = toml::from_str(&content)
         .with_context(|| format!("Failed to parse {}", toml_path.display()))?;
 
-    let modules = convert_modules(manifest.modules);
+    let modules = convert_modules(manifest.modules, exercises_dir);
     let exercises = convert_exercises(manifest.exercises, exercises_dir);
 
     validate(&modules, &exercises)?;
@@ -79,7 +85,7 @@ pub fn load_manifest(exercises_dir: &Path) -> Result<(Vec<Module>, Vec<Exercise>
     Ok((modules, exercises))
 }
 
-fn convert_modules(raw: Vec<TomlModule>) -> Vec<Module> {
+fn convert_modules(raw: Vec<TomlModule>, exercises_dir: &Path) -> Vec<Module> {
     raw.into_iter()
         .map(|m| Module {
             id: m.id,
@@ -89,6 +95,9 @@ fn convert_modules(raw: Vec<TomlModule>) -> Vec<Module> {
             tier: m.tier,
             order: m.order,
             prerequisites: m.prerequisites,
+            lesson: m.lesson.map(|l| exercises_dir.join(l)),
+            book_url: m.book_url,
+            concepts: m.concepts,
         })
         .collect()
 }
@@ -177,6 +186,20 @@ fn validate(modules: &[Module], exercises: &[Exercise]) -> Result<()> {
                 "Duplicate order {} in module '{}' (exercise '{}')",
                 e.order, e.module_id, e.id
             ));
+        }
+    }
+
+    // Check declared lesson files exist. A module with no `lesson` key is fine;
+    // one that names a missing file is a content bug worth failing loudly on.
+    for m in modules {
+        if let Some(lesson) = &m.lesson {
+            if !lesson.exists() {
+                errors.push(format!(
+                    "Module '{}': lesson file not found: {}",
+                    m.id,
+                    lesson.display()
+                ));
+            }
         }
     }
 
