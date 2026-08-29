@@ -1,13 +1,12 @@
 use std::collections::HashMap;
-use std::path::PathBuf;
-use std::time::Instant;
+use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
 
 use crate::exercise::catalog::ExerciseCatalog;
 use crate::exercise::types::*;
 use crate::exercise::workspace::Workspace;
-use crate::game::{progress, streak::StreakState, xp};
+use crate::game::{award, progress, streak::StreakState};
 use crate::runner::{pipeline, sandbox};
 use crate::state::game_state::GameState;
 use crate::state::persistence;
@@ -21,6 +20,15 @@ pub struct App {
     pub cache_dir: PathBuf,
     /// Maps tracked exercise templates to the student's gitignored working copies.
     pub workspace: Workspace,
+    /// Whether [`App::save`] actually writes to disk.
+    ///
+    /// `false` under `new_for_testing`. `save_state` resolves a process-global
+    /// path, so without this any test that completes an exercise would overwrite
+    /// the player's real `state.json` — including in parallel with other tests.
+    persist: bool,
+    /// The most recent verification result per exercise ID, so the AI context
+    /// block can carry the compiler error it promises.
+    pub last_result: HashMap<String, pipeline::VerificationResult>,
 }
 
 impl App {
@@ -81,14 +89,30 @@ impl App {
         )
     }
 
+    /// The sandbox cache directory, anchored beside the resolved `exercises/`
+    /// rather than the current working directory — otherwise running with
+    /// `RUST_GAME_DIR` from elsewhere strands orphan cache trees.
+    pub fn cache_dir_for(exercises_dir: &Path) -> PathBuf {
+        exercises_dir
+            .parent()
+            .unwrap_or(Path::new("."))
+            .join(".rust-game-cache")
+    }
+
+    /// Resolve the exercises directory for callers that do not need a full
+    /// `App` (notably `clean-cache`, which runs before `init`).
+    pub fn exercises_dir_or_cwd() -> PathBuf {
+        Self::find_exercises_dir().unwrap_or_else(|_| PathBuf::from("exercises"))
+    }
+
     /// Initialize the app: load catalog and state.
     pub fn init() -> Result<Self> {
         let exercises_dir = Self::find_exercises_dir()?;
-        let cache_dir = PathBuf::from(".rust-game-cache");
+        let cache_dir = Self::cache_dir_for(&exercises_dir);
         let workspace = Workspace::new(
             exercises_dir
                 .parent()
-                .unwrap_or(std::path::Path::new("."))
+                .unwrap_or(Path::new("."))
                 .join("workspace"),
         );
 
@@ -111,11 +135,16 @@ impl App {
             exercises_dir,
             cache_dir,
             workspace,
+            persist: true,
+            last_result: HashMap::new(),
         })
     }
 
     /// Create an App for testing — loads the real catalog but uses fresh state.
-    /// Does not load or save persistent state.
+    ///
+    /// Persistence is disabled, so `save()` is a no-op: the state path is
+    /// process-global and a test that completed an exercise would otherwise
+    /// overwrite the player's real progress.
     pub fn new_for_testing() -> Result<Self> {
         let exercises_dir = PathBuf::from("exercises");
         let cache_dir = PathBuf::from(".rust-game-test-cache");
@@ -134,14 +163,21 @@ impl App {
             exercises_dir,
             cache_dir,
             workspace,
+            persist: false,
+            last_result: HashMap::new(),
         })
     }
 
     /// Save the current state to disk.
+    ///
+    /// A no-op when `persist` is false (see [`App::new_for_testing`]).
     pub fn save(&mut self) -> Result<()> {
         // Sync streak back to state before saving
         self.state.player.current_streak = self.streak.current;
         self.state.player.best_streak = self.streak.best;
+        if !self.persist {
+            return Ok(());
+        }
         persistence::save_state(&self.state)
     }
 
@@ -276,32 +312,32 @@ impl App {
         let source = self.workspace.ensure_materialized(&exercise)?;
 
         let run_id = pipeline::next_run_id();
-        let start = Instant::now();
         let result = pipeline::verify_exercise(&exercise, &source, &self.cache_dir, run_id)?;
+        self.last_result
+            .insert(exercise_id.to_string(), result.clone());
 
         if result.passed() {
-            let elapsed_secs = start.elapsed().as_secs();
-
-            // Record attempt and complete
-            self.state.record_attempt(exercise_id);
-            let attempts = self.state.exercises.get(exercise_id).unwrap().attempts;
-
-            let time_taken = exercise
-                .time_limit_secs
-                .map(|_| start.elapsed());
-
-            let award = xp::calculate_xp(&exercise, attempts, time_taken, self.streak.current);
-            let is_new = self.state.complete_exercise(exercise_id, award.total, Some(elapsed_secs));
-
-            if is_new {
-                self.streak.increment();
-            }
+            // The CLI has no meaningful start time — a one-shot verify measures
+            // compile duration, which always beats a 60-180s limit and so used
+            // to grant the time-trial bonus unconditionally. `None` is honest.
+            let outcome = award::award_completion(self, &exercise, None);
 
             println!("  PASSED!");
-            println!("  +{} XP (base: {}, first-try: {}, time: {}, streak: {:.2}x)",
-                award.total, award.base, award.first_try_bonus,
-                award.time_trial_bonus, award.streak_multiplier
-            );
+            if outcome.is_new {
+                let a = &outcome.award;
+                println!(
+                    "  +{} XP (base: {}, first-try: {}, time: {}, streak: {:.2}x)",
+                    a.total, a.base, a.first_try_bonus, a.time_trial_bonus, a.streak_multiplier
+                );
+            } else {
+                println!("  (already completed — no additional XP)");
+            }
+            if let Some((old, new)) = outcome.level_up {
+                println!("  LEVEL UP!  {} -> {}", old, new);
+            }
+            if let Some((name, theme)) = &outcome.module_completed {
+                println!("  MODULE COMPLETE: {} — {}", name, theme);
+            }
             println!(
                 "  Level {} | {}/{} exercises | Streak: {}",
                 self.state.player.level,
@@ -309,8 +345,6 @@ impl App {
                 self.catalog.total_exercises(),
                 self.streak.current,
             );
-
-            self.save()?;
         } else {
             // Record attempt
             self.state.record_attempt(exercise_id);
@@ -439,20 +473,36 @@ impl App {
     }
 
     /// Format exercise context for an AI tutor.
-    pub fn cmd_hint_ai(&self, exercise_id: &str) -> Result<()> {
+    pub fn cmd_hint_ai(&mut self, exercise_id: &str) -> Result<()> {
         let exercise = self
             .catalog
             .get_exercise(exercise_id)
             .context(format!("Exercise not found: '{}'", exercise_id))?;
 
-        let source_path = self.workspace.source_path(exercise);
+        let exercise = exercise.clone();
+        let source_path = self.workspace.source_path(&exercise);
         let source = std::fs::read_to_string(&source_path)
             .with_context(|| format!("Failed to read: {}", source_path.display()))?;
 
+        // The compiler error is the single most useful thing a Rust tutor can
+        // be handed, so never emit the block without one. If nothing is cached,
+        // verify now — reading `source_path`, which is the same file printed
+        // above, so this stays side-effect-free.
+        if !self.last_result.contains_key(exercise_id) {
+            eprintln!("Verifying to capture the current compiler output...");
+            let run_id = pipeline::next_run_id();
+            match pipeline::verify_exercise(&exercise, &source_path, &self.cache_dir, run_id) {
+                Ok(result) => {
+                    self.last_result.insert(exercise_id.to_string(), result);
+                }
+                Err(e) => eprintln!("Could not capture compiler output: {:#}", e),
+            }
+        }
+
         let context = crate::ai::context_formatter::format_ai_context(
-            exercise,
+            &exercise,
             &source,
-            None, // no verification result for CLI
+            self.last_result.get(exercise_id),
             &self.catalog,
             &self.state,
         );

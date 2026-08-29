@@ -5,7 +5,7 @@ use crossterm::event::{KeyCode, KeyModifiers};
 
 use crate::app::App;
 use crate::exercise::types::ExerciseStatus;
-use crate::game::xp;
+use crate::game::award;
 use crate::runner::pipeline;
 use crate::watcher::file_watcher::ExerciseWatcher;
 use super::event::{self, AppEvent};
@@ -51,6 +51,33 @@ pub struct TuiApp {
     /// frame: `tui_markdown::from_str` borrows its input, and the render loop
     /// ticks every 200ms.
     pub current_lesson: Option<crate::lesson::Lesson>,
+    // Watch-mode failure output
+    pub watch_scroll: u16,
+    /// Largest useful scroll offset for the failure pane, published by the
+    /// renderer (the only place the wrapped line count is known).
+    pub watch_scroll_max: std::cell::Cell<u16>,
+    /// Where Esc should return to. Set when `a`/`l` are pressed from watch
+    /// mode, so those screens come back instead of stranding the session.
+    pub return_to: Option<Screen>,
+    /// Armed by the first `x` in watch mode; the second one performs the reset.
+    pub pending_reset: bool,
+    // Async verification
+    /// Receiver for the in-flight verification, if any. The `u64` is the run
+    /// ID: `anyhow::Error` carries no ID of its own, so pairing it here is what
+    /// lets a stale *error* be discarded as well as a stale success.
+    verify_rx: Option<std::sync::mpsc::Receiver<(u64, anyhow::Result<pipeline::VerificationResult>)>>,
+    /// Which screen dispatched the in-flight verification.
+    verify_kind: Option<VerifyKind>,
+    /// A save arrived while a verification was in flight; re-dispatch on completion.
+    verify_pending: bool,
+}
+
+/// Which caller a pending verification belongs to, so its result is applied to
+/// the right screen state even if the student navigated away.
+#[derive(Clone, Copy, PartialEq)]
+enum VerifyKind {
+    Watch,
+    OneShot,
 }
 
 #[derive(Clone, PartialEq)]
@@ -101,6 +128,13 @@ impl TuiApp {
             lesson_scroll: 0,
             lesson_max_scroll: std::cell::Cell::new(0),
             current_lesson: None,
+            watch_scroll: 0,
+            watch_scroll_max: std::cell::Cell::new(0),
+            return_to: None,
+            pending_reset: false,
+            verify_rx: None,
+            verify_kind: None,
+            verify_pending: false,
         }
     }
 
@@ -160,6 +194,12 @@ impl TuiApp {
             }
         };
 
+        // Invalidate anything already in flight. Without this, `current_run_id`
+        // only ever changes at dispatch, so the staleness gate can never fire —
+        // and a verification started for the previous exercise would land on
+        // this one's screen.
+        self.current_run_id = pipeline::next_run_id();
+
         match ExerciseWatcher::new(&working) {
             Ok(w) => {
                 self.watcher = Some(w);
@@ -179,6 +219,10 @@ impl TuiApp {
     fn exit_watch_mode(&mut self, exercise_id: &str) {
         self.watcher = None;
         self.watch_status = WatchStatus::Watching;
+        self.return_to = None;
+        self.pending_reset = false;
+        // Any verification still running belongs to the session being left.
+        self.current_run_id = pipeline::next_run_id();
         if let Some(ex) = self.app.catalog.get_exercise(exercise_id) {
             self.screen = Screen::ExerciseView(ex.id.clone());
         } else {
@@ -186,85 +230,208 @@ impl TuiApp {
         }
     }
 
-    /// Run verification for watch mode. Returns immediately with result.
-    /// Uses run_id gating: only applies the result if run_id matches current.
-    fn run_watch_verify(&mut self, exercise_id: &str) {
+    /// Dispatch a verification onto a worker thread and return immediately.
+    ///
+    /// Verification used to run inline in the render loop, which froze the UI
+    /// for the whole compile — up to the 30s boss-battle timeout — and made
+    /// `WatchStatus::Verifying` unreachable, because it was set and overwritten
+    /// before the next `terminal.draw`. Worse, the student saw a stale green
+    /// `PASSED!` while their newly-broken code was compiling.
+    fn dispatch_verify(&mut self, exercise_id: &str, kind: VerifyKind) {
+        // One verification at a time against a given sandbox: `Sandbox::prepare`
+        // rewrites `src/main.rs`, so a second run would edit the sources the
+        // first is still compiling. Coalescing also debounces save storms from
+        // format-on-save editors.
+        if self.verify_rx.is_some() {
+            self.verify_pending = true;
+            return;
+        }
+
         let exercise = match self.app.catalog.get_exercise(exercise_id) {
             Some(e) => e.clone(),
             None => return,
         };
 
-        // Check that the student's working copy still exists
-        let source = self.app.workspace.working_path(&exercise);
-        if !source.exists() {
-            self.watch_status = WatchStatus::Failed(
-                "Exercise file not found. Press 'x' to reset it.".into(),
-            );
-            return;
-        }
+        let source = match kind {
+            VerifyKind::Watch => {
+                let p = self.app.workspace.working_path(&exercise);
+                if !p.exists() {
+                    self.watch_status = WatchStatus::Failed(
+                        "Exercise file not found. Press 'x' to reset it.".into(),
+                    );
+                    return;
+                }
+                p
+            }
+            VerifyKind::OneShot => match self.app.workspace.ensure_materialized(&exercise) {
+                Ok(p) => p,
+                Err(e) => {
+                    self.verify_passed = Some(false);
+                    self.verify_output = Some(format!("{:#}", e));
+                    return;
+                }
+            },
+        };
 
         self.current_run_id = pipeline::next_run_id();
         let run_id = self.current_run_id;
-        self.watch_status = WatchStatus::Verifying;
+        match kind {
+            VerifyKind::Watch => {
+                self.watch_status = WatchStatus::Verifying;
+                self.watch_scroll = 0;
+                // A verify landing between the two `x` presses would otherwise
+                // overwrite the confirmation prompt while leaving it armed.
+                self.pending_reset = false;
+            }
+            VerifyKind::OneShot => {
+                self.verify_passed = None;
+                self.verify_output = Some("Verifying...".to_string());
+            }
+        }
 
-        let result = match pipeline::verify_exercise(&exercise, &source, &self.app.cache_dir, run_id) {
+        let cache_dir = self.app.cache_dir.clone();
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let result = pipeline::verify_exercise(&exercise, &source, &cache_dir, run_id);
+            let _ = tx.send((run_id, result));
+        });
+        self.verify_rx = Some(rx);
+        self.verify_kind = Some(kind);
+    }
+
+    /// Collect a finished verification, if one has arrived. Non-blocking.
+    ///
+    /// Quitting mid-verify leaves the worker's `cargo` running to completion as
+    /// an orphan — it lives in its own `setsid` session, finishes in seconds,
+    /// and writes only into `.rust-game-cache/`. Deliberate, for a local tool.
+    fn poll_verify(&mut self) {
+        use std::sync::mpsc::TryRecvError;
+
+        let received = match self.verify_rx.as_ref() {
+            Some(rx) => match rx.try_recv() {
+                Ok(msg) => Some(Some(msg)),
+                // The worker vanished without sending; clear the slot rather
+                // than wedging every future dispatch behind the in-flight guard.
+                Err(TryRecvError::Disconnected) => Some(None),
+                Err(TryRecvError::Empty) => None,
+            },
+            None => None,
+        };
+
+        let Some(message) = received else { return };
+        self.verify_rx = None;
+        let kind = self.verify_kind.take();
+
+        match (message, kind) {
+            (Some((run_id, result)), Some(kind)) => {
+                // Stale results — including errors — are discarded.
+                if run_id == self.current_run_id {
+                    self.apply_verify_result(kind, result);
+                }
+            }
+            (None, Some(kind)) => {
+                let msg = "Verification worker stopped unexpectedly.".to_string();
+                match kind {
+                    VerifyKind::Watch => self.watch_status = WatchStatus::Failed(msg),
+                    VerifyKind::OneShot => {
+                        self.verify_passed = Some(false);
+                        self.verify_output = Some(msg);
+                    }
+                }
+            }
+            _ => {}
+        }
+
+        if self.verify_pending {
+            self.verify_pending = false;
+            // Also honor `return_to`: the student may have pressed `a` or `l`
+            // while the verify was running, and their newest save still needs
+            // checking.
+            let target = match (&self.screen, &self.return_to) {
+                (Screen::WatchMode(id), _) => Some(id.clone()),
+                (_, Some(Screen::WatchMode(id))) => Some(id.clone()),
+                _ => None,
+            };
+            if let Some(id) = target {
+                self.dispatch_verify(&id, VerifyKind::Watch);
+            }
+        }
+    }
+
+    /// Apply a completed verification to the screen state that asked for it.
+    fn apply_verify_result(
+        &mut self,
+        kind: VerifyKind,
+        result: anyhow::Result<pipeline::VerificationResult>,
+    ) {
+        let result = match result {
             Ok(r) => r,
             Err(e) => {
-                self.watch_status = WatchStatus::Failed(format!("{:#}", e));
+                let msg = format!("{:#}", e);
+                match kind {
+                    VerifyKind::Watch => self.watch_status = WatchStatus::Failed(msg),
+                    VerifyKind::OneShot => {
+                        self.verify_passed = Some(false);
+                        self.verify_output = Some(msg);
+                    }
+                }
                 return;
             }
         };
 
-        // Run ID check: discard if a newer run started while we were verifying
-        if run_id != self.current_run_id {
-            return; // Stale result — discard
-        }
+        let exercise_id = result.exercise_id.clone();
+        let exercise = match self.app.catalog.get_exercise(&exercise_id) {
+            Some(e) => e.clone(),
+            None => return,
+        };
+        self.app
+            .last_result
+            .insert(exercise_id.clone(), result.clone());
+
+        // Screen state is only safe to write while the student is still looking
+        // at *this* exercise. The award below is keyed by `result.exercise_id`
+        // and stays correct either way.
+        let on_this_exercise = match &self.screen {
+            Screen::WatchMode(id) | Screen::ExerciseView(id) => id == &exercise_id,
+            _ => false,
+        };
 
         if result.passed() {
-            // Record attempt + complete
-            self.app.state.record_attempt(exercise_id);
-            let attempts = self.app.state.exercises.get(exercise_id).unwrap().attempts;
-
-            let time_taken = exercise.time_limit_secs.map(|_| {
-                self.watch_start.map(|s| s.elapsed()).unwrap_or_default()
-            });
-
-            let old_level = self.app.state.player.level;
-            let award = xp::calculate_xp(&exercise, attempts, time_taken, self.app.streak.current);
-            let is_new = self.app.state.complete_exercise(
-                exercise_id,
-                award.total,
-                self.watch_start.map(|s| s.elapsed().as_secs()),
-            );
-
-            if is_new {
-                self.app.streak.increment();
-                let new_level = self.app.state.player.level;
-                if new_level > old_level {
-                    self.level_up_from = Some((old_level, new_level));
-                    self.level_up_time = Some(Instant::now());
+            // Only watch mode tracks when the student started, so it is the
+            // only path that can honestly award the time-trial bonus. If they
+            // have moved on, there is no honest elapsed time to use.
+            let started_at = match kind {
+                VerifyKind::Watch if on_this_exercise => self.watch_start,
+                _ => None,
+            };
+            let outcome = award::award_completion(&mut self.app, &exercise, started_at);
+            self.apply_outcome(&outcome);
+            let msg = self.format_outcome(&outcome);
+            if on_this_exercise {
+                match kind {
+                    VerifyKind::Watch => self.watch_status = WatchStatus::Passed(msg),
+                    VerifyKind::OneShot => {
+                        self.verify_passed = Some(true);
+                        self.verify_output = Some(msg);
+                    }
                 }
-                self.check_module_completion(exercise_id);
             }
-
-            let msg = format!(
-                "PASSED! +{} XP (base: {}, first-try: {}, time: {}, streak: {:.2}x)\nLevel {} | {}/{} exercises | Streak: {}",
-                award.total, award.base, award.first_try_bonus,
-                award.time_trial_bonus, award.streak_multiplier,
-                self.app.state.player.level,
-                self.app.state.exercises_completed(),
-                self.app.catalog.total_exercises(),
-                self.app.streak.current,
-            );
-            self.watch_status = WatchStatus::Passed(msg);
-            let _ = self.app.save();
         } else {
-            // Record attempt
-            self.app.state.record_attempt(exercise_id);
+            self.app.state.record_attempt(&exercise_id);
             let _ = self.app.save();
-
-            let output = result.first_error().unwrap_or("Verification failed").to_string();
-            self.watch_status = WatchStatus::Failed(output);
+            let output = result
+                .first_error()
+                .unwrap_or("Verification failed")
+                .to_string();
+            if on_this_exercise {
+                match kind {
+                    VerifyKind::Watch => self.watch_status = WatchStatus::Failed(output),
+                    VerifyKind::OneShot => {
+                        self.verify_passed = Some(false);
+                        self.verify_output = Some(output);
+                    }
+                }
+            }
         }
     }
 
@@ -298,41 +465,38 @@ impl TuiApp {
         self.module_complete_time = None;
     }
 
-    /// Check if the module containing `exercise_id` just became fully completed.
-    /// Should be called after marking an exercise complete.
-    fn check_module_completion(&mut self, exercise_id: &str) {
-        if let Some(ex) = self.app.catalog.get_exercise(exercise_id) {
-            let module_id = ex.module_id.clone();
-            let exercises = self.app.catalog.exercises_for_module(&module_id);
-            let all_complete = exercises.iter().all(|e| {
-                self.app.exercise_status(&e.id) == ExerciseStatus::Completed
-            });
-            if all_complete && !exercises.is_empty() {
-                // Check if we haven't already celebrated this module
-                let module_state = self.app.state.modules.get(&module_id);
-                let was_already_complete = module_state
-                    .map(|ms| ms.completed)
-                    .unwrap_or(false);
-                if !was_already_complete {
-                    if let Some(m) = self.app.catalog.get_module(&module_id) {
-                        self.module_complete_info =
-                            Some((m.name.clone(), m.theme_name.clone()));
-                        self.module_complete_time = Some(Instant::now());
-                    }
-                    // Mark module as completed in state
-                    let ms = self.app.state.modules
-                        .entry(module_id)
-                        .or_insert_with(|| crate::state::game_state::ModuleState {
-                            unlocked: true,
-                            completed: false,
-                            unlocked_at: None,
-                            completed_at: None,
-                        });
-                    ms.completed = true;
-                    ms.completed_at = Some(chrono::Utc::now());
-                }
-            }
+    /// Apply the parts of an [`Outcome`] that drive TUI animations.
+    fn apply_outcome(&mut self, outcome: &award::Outcome) {
+        if let Some((old, new)) = outcome.level_up {
+            self.level_up_from = Some((old, new));
+            self.level_up_time = Some(Instant::now());
         }
+        if let Some((name, theme)) = &outcome.module_completed {
+            self.module_complete_info = Some((name.clone(), theme.clone()));
+            self.module_complete_time = Some(Instant::now());
+        }
+    }
+
+    /// Render an [`Outcome`] for display. Reads the award off the outcome, so
+    /// it cannot claim XP the state layer declined.
+    fn format_outcome(&self, outcome: &award::Outcome) -> String {
+        let head = if outcome.is_new {
+            let a = &outcome.award;
+            format!(
+                "PASSED! +{} XP (base: {}, first-try: {}, time: {}, streak: {:.2}x)",
+                a.total, a.base, a.first_try_bonus, a.time_trial_bonus, a.streak_multiplier
+            )
+        } else {
+            "PASSED! (already completed — no additional XP)".to_string()
+        };
+        format!(
+            "{}\nLevel {} | {}/{} exercises | Streak: {}",
+            head,
+            self.app.state.player.level,
+            self.app.state.exercises_completed(),
+            self.app.catalog.total_exercises(),
+            self.app.streak.current,
+        )
     }
 }
 
@@ -360,10 +524,14 @@ pub fn run(app: App) -> Result<()> {
             if file_changed {
                 if let Screen::WatchMode(id) = &tui.screen {
                     let id = id.clone();
-                    tui.run_watch_verify(&id);
+                    tui.dispatch_verify(&id, VerifyKind::Watch);
                 }
             }
         }
+
+        // Collect a finished verification regardless of screen — the student
+        // may have pressed `a` or `l` while it was running.
+        tui.poll_verify();
 
         // Auto-dismiss celebration overlays
         if tui.level_up_time.is_some() && !tui.is_level_up_visible() {
@@ -546,56 +714,7 @@ fn handle_exercise_view_key(key: crossterm::event::KeyEvent, tui: &mut TuiApp) {
                     return;
                 }
             }
-            // Temporarily enter watch mode logic for a single verify
-            if let Some(ex) = tui.app.catalog.get_exercise(&exercise_id) {
-                let ex = ex.clone();
-                let source = match tui.app.workspace.ensure_materialized(&ex) {
-                    Ok(p) => p,
-                    Err(e) => {
-                        tui.verify_passed = Some(false);
-                        tui.verify_output = Some(format!("{:#}", e));
-                        return;
-                    }
-                };
-                let run_id = pipeline::next_run_id();
-                match pipeline::verify_exercise(&ex, &source, &tui.app.cache_dir, run_id) {
-                    Ok(result) => {
-                        if result.passed() {
-                            tui.app.state.record_attempt(&exercise_id);
-                            let attempts = tui.app.state.exercises.get(&exercise_id).unwrap().attempts;
-                            let old_level = tui.app.state.player.level;
-                            let award = xp::calculate_xp(&ex, attempts, None, tui.app.streak.current);
-                            let is_new = tui.app.state.complete_exercise(&exercise_id, award.total, None);
-                            if is_new {
-                                tui.app.streak.increment();
-                                let new_level = tui.app.state.player.level;
-                                if new_level > old_level {
-                                    tui.level_up_from = Some((old_level, new_level));
-                                    tui.level_up_time = Some(Instant::now());
-                                }
-                                tui.check_module_completion(&exercise_id);
-                            }
-                            tui.verify_passed = Some(true);
-                            tui.verify_output = Some(format!(
-                                "PASSED! +{} XP (base: {}, first-try: {}, streak: {:.2}x)",
-                                award.total, award.base, award.first_try_bonus, award.streak_multiplier
-                            ));
-                            let _ = tui.app.save();
-                        } else {
-                            tui.app.state.record_attempt(&exercise_id);
-                            let _ = tui.app.save();
-                            tui.verify_passed = Some(false);
-                            tui.verify_output = Some(
-                                result.first_error().unwrap_or("Failed").to_string(),
-                            );
-                        }
-                    }
-                    Err(e) => {
-                        tui.verify_passed = Some(false);
-                        tui.verify_output = Some(format!("{:#}", e));
-                    }
-                }
-            }
+            tui.dispatch_verify(&exercise_id, VerifyKind::OneShot);
         }
         KeyCode::Char('o') => {
             if let Some(ex) = tui.app.catalog.get_exercise(&exercise_id) {
@@ -619,9 +738,39 @@ fn handle_exercise_view_key(key: crossterm::event::KeyEvent, tui: &mut TuiApp) {
 }
 
 fn handle_watch_mode_key(key: crossterm::event::KeyEvent, tui: &mut TuiApp, exercise_id: &str) {
+    // Any key other than a second `x` cancels a pending reset.
+    if tui.pending_reset && key.code != KeyCode::Char('x') {
+        tui.pending_reset = false;
+        tui.status_message = Some("Reset cancelled.".into());
+        return;
+    }
+
     match key.code {
         KeyCode::Esc | KeyCode::Char('q') => {
             tui.exit_watch_mode(exercise_id);
+        }
+        KeyCode::Down | KeyCode::Char('j') => {
+            let max = tui.watch_scroll_max.get();
+            tui.watch_scroll = tui.watch_scroll.saturating_add(1).min(max);
+        }
+        KeyCode::Up | KeyCode::Char('k') => {
+            tui.watch_scroll = tui.watch_scroll.saturating_sub(1);
+        }
+        KeyCode::Char('a') => {
+            // Remember where to come back to — Esc from AiContext otherwise
+            // lands on ExerciseView and silently ends the watch session.
+            tui.return_to = Some(Screen::WatchMode(exercise_id.to_string()));
+            tui.ai_context_scroll = 0;
+            tui.screen = Screen::AiContext(exercise_id.to_string());
+        }
+        KeyCode::Char('l') => {
+            if let Some(ex) = tui.app.catalog.get_exercise(exercise_id) {
+                let module_id = ex.module_id.clone();
+                tui.return_to = Some(Screen::WatchMode(exercise_id.to_string()));
+                if !tui.open_lesson(&module_id) {
+                    tui.return_to = None;
+                }
+            }
         }
         KeyCode::Char('h') => {
             if let Some(ex) = tui.app.catalog.get_exercise(exercise_id) {
@@ -642,14 +791,27 @@ fn handle_watch_mode_key(key: crossterm::event::KeyEvent, tui: &mut TuiApp, exer
             }
         }
         KeyCode::Char('x') => {
-            // Restore the pristine template over the student's working copy.
+            // Destructive, so it announces itself first and needs confirming.
+            if !tui.pending_reset {
+                tui.pending_reset = true;
+                tui.status_message = Some(
+                    "This discards your work on this exercise. Press x again to confirm, \
+                     any other key to cancel."
+                        .into(),
+                );
+                return;
+            }
+            tui.pending_reset = false;
             if let Some(ex) = tui.app.catalog.get_exercise(exercise_id) {
                 let ex = ex.clone();
                 match tui.app.workspace.reset(&ex) {
                     Ok(p) => {
-                        tui.status_message =
-                            Some(format!("Reset to the original exercise: {}", p.display()));
+                        tui.status_message = Some(format!(
+                            "Reset to the original exercise (previous work saved to .bak): {}",
+                            p.display()
+                        ));
                         tui.watch_status = WatchStatus::Watching;
+                        tui.watch_scroll = 0;
                     }
                     Err(e) => tui.status_message = Some(format!("Reset failed: {:#}", e)),
                 }
@@ -692,27 +854,12 @@ fn handle_mcq_key(key: crossterm::event::KeyEvent, tui: &mut TuiApp, exercise_id
         KeyCode::Enter => {
             if let Some(opt) = exercise.multiple_choice_options.get(tui.selected_mcq_option) {
                 if opt.correct {
-                    // Correct! Award XP
-                    tui.app.state.record_attempt(exercise_id);
-                    let attempts = tui.app.state.exercises.get(exercise_id).unwrap().attempts;
-                    let old_level = tui.app.state.player.level;
-                    let award = xp::calculate_xp(&exercise, attempts, None, tui.app.streak.current);
-                    let is_new = tui.app.state.complete_exercise(exercise_id, award.total, None);
-                    if is_new {
-                        tui.app.streak.increment();
-                        let new_level = tui.app.state.player.level;
-                        if new_level > old_level {
-                            tui.level_up_from = Some((old_level, new_level));
-                            tui.level_up_time = Some(Instant::now());
-                        }
-                        tui.check_module_completion(exercise_id);
-                    }
-                    tui.mcq_feedback = Some(format!(
-                        "Correct! +{} XP (base: {}, first-try: {}, streak: {:.2}x)",
-                        award.total, award.base, award.first_try_bonus, award.streak_multiplier
-                    ));
+                    // MCQ compiles nothing, so there is no verification result
+                    // and no start time — only the award path is shared.
+                    let outcome = award::award_completion(&mut tui.app, &exercise, None);
+                    tui.apply_outcome(&outcome);
+                    tui.mcq_feedback = Some(format!("Correct! {}", tui.format_outcome(&outcome)));
                     tui.mcq_correct = Some(true);
-                    let _ = tui.app.save();
                 } else {
                     tui.app.state.record_attempt(exercise_id);
                     let _ = tui.app.save();
@@ -733,7 +880,10 @@ fn handle_lesson_key(key: crossterm::event::KeyEvent, tui: &mut TuiApp, module_i
         KeyCode::Esc => {
             // Leave without marking read.
             tui.current_lesson = None;
-            tui.screen = Screen::ModuleView(module_id.to_string());
+            tui.screen = tui
+                .return_to
+                .take()
+                .unwrap_or_else(|| Screen::ModuleView(module_id.to_string()));
         }
         KeyCode::Char('q') => tui.should_quit = true,
         KeyCode::Char('m') => {
@@ -741,7 +891,10 @@ fn handle_lesson_key(key: crossterm::event::KeyEvent, tui: &mut TuiApp, module_i
             let _ = tui.app.save();
             tui.current_lesson = None;
             tui.status_message = Some("Lesson marked as read.".into());
-            tui.screen = Screen::ModuleView(module_id.to_string());
+            tui.screen = tui
+                .return_to
+                .take()
+                .unwrap_or_else(|| Screen::ModuleView(module_id.to_string()));
         }
         KeyCode::Down | KeyCode::Char('j') => {
             let max = tui.lesson_max_scroll.get();
@@ -757,7 +910,10 @@ fn handle_lesson_key(key: crossterm::event::KeyEvent, tui: &mut TuiApp, module_i
 fn handle_ai_context_key(key: crossterm::event::KeyEvent, tui: &mut TuiApp, exercise_id: &str) {
     match key.code {
         KeyCode::Esc => {
-            tui.screen = Screen::ExerciseView(exercise_id.to_string());
+            tui.screen = tui
+                .return_to
+                .take()
+                .unwrap_or_else(|| Screen::ExerciseView(exercise_id.to_string()));
         }
         KeyCode::Char('q') => tui.should_quit = true,
         KeyCode::Down | KeyCode::Char('j') => {
@@ -767,5 +923,86 @@ fn handle_ai_context_key(key: crossterm::event::KeyEvent, tui: &mut TuiApp, exer
             tui.ai_context_scroll = tui.ai_context_scroll.saturating_sub(1);
         }
         _ => {}
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_tui() -> TuiApp {
+        TuiApp::new(App::new_for_testing().expect("test app"))
+    }
+
+    fn first_exercise_id(tui: &TuiApp) -> String {
+        tui.app.catalog.exercises()[0].id.clone()
+    }
+
+    /// `WatchStatus::Verifying` used to be unreachable: verification ran inline
+    /// between draws, so the state was set and overwritten before it rendered.
+    #[test]
+    fn verifying_is_observable_while_a_verification_is_in_flight() {
+        let mut tui = test_tui();
+        let id = first_exercise_id(&tui);
+        tui.app.workspace.ensure_materialized(&tui.app.catalog.exercises()[0].clone()).unwrap();
+        tui.screen = Screen::WatchMode(id.clone());
+
+        tui.dispatch_verify(&id, VerifyKind::Watch);
+        assert!(
+            matches!(tui.watch_status, WatchStatus::Verifying),
+            "the UI must be able to show that a verification is running"
+        );
+        assert!(tui.verify_rx.is_some(), "a worker should be in flight");
+    }
+
+    /// A result whose run_id no longer matches must be discarded — this is what
+    /// stops a verification started for one exercise from landing on another.
+    #[test]
+    fn a_stale_result_does_not_touch_screen_state() {
+        let mut tui = test_tui();
+        let id = first_exercise_id(&tui);
+        tui.app.workspace.ensure_materialized(&tui.app.catalog.exercises()[0].clone()).unwrap();
+        tui.screen = Screen::WatchMode(id.clone());
+
+        tui.dispatch_verify(&id, VerifyKind::Watch);
+
+        // Simulate leaving and re-entering: the run in flight is now stale.
+        tui.current_run_id = pipeline::next_run_id();
+        tui.watch_status = WatchStatus::Watching;
+
+        // Drain the worker.
+        for _ in 0..600 {
+            tui.poll_verify();
+            if tui.verify_rx.is_none() {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+
+        assert!(tui.verify_rx.is_none(), "the worker slot must be released");
+        assert!(
+            matches!(tui.watch_status, WatchStatus::Watching),
+            "a stale result must not overwrite the current screen state"
+        );
+    }
+
+    /// A second save while a verification is running must be coalesced, not
+    /// dispatched against a sandbox the first run is still compiling in.
+    #[test]
+    fn overlapping_dispatch_is_coalesced() {
+        let mut tui = test_tui();
+        let id = first_exercise_id(&tui);
+        tui.app.workspace.ensure_materialized(&tui.app.catalog.exercises()[0].clone()).unwrap();
+        tui.screen = Screen::WatchMode(id.clone());
+
+        tui.dispatch_verify(&id, VerifyKind::Watch);
+        let run_id = tui.current_run_id;
+
+        tui.dispatch_verify(&id, VerifyKind::Watch);
+        assert!(tui.verify_pending, "the second dispatch should be queued");
+        assert_eq!(
+            tui.current_run_id, run_id,
+            "the queued dispatch must not start a second run"
+        );
     }
 }

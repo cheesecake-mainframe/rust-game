@@ -34,7 +34,9 @@ pub fn render(frame: &mut Frame, tui: &TuiApp, exercise_id: &str) {
     let context = crate::ai::context_formatter::format_ai_context(
         exercise,
         &source,
-        None,
+        // The compiler error is the whole reason to open this screen — and
+        // `a` from watch mode lands here with the failure still on screen.
+        tui.app.last_result.get(exercise_id),
         &tui.app.catalog,
         &tui.app.state,
     );
