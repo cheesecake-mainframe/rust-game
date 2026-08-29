@@ -99,6 +99,9 @@ pub fn render(frame: &mut Frame, tui: &TuiApp, exercise_id: &str) {
             );
         }
         WatchStatus::Failed(output) => {
+            // Every line, scrollable. rustc's `help:` and its suggested fix
+            // routinely land past line 20, and a cargo test assertion diff
+            // deeper still — truncating hides exactly what the student needs.
             let mut lines = vec![
                 Line::from(""),
                 Line::from(Span::styled(
@@ -107,22 +110,23 @@ pub fn render(frame: &mut Frame, tui: &TuiApp, exercise_id: &str) {
                 )),
                 Line::from(""),
             ];
-            for line in output.lines().take(20) {
+            for line in output.lines() {
                 lines.push(Line::from(Span::styled(
                     format!("  {}", line),
                     Style::new().fg(Color::Red),
                 )));
             }
-            if output.lines().count() > 20 {
-                lines.push(Line::from(Span::styled(
-                    "  ... (output truncated)",
-                    Style::new().fg(Color::DarkGray),
-                )));
-            }
+
+            let inner = verify_block.inner(outer[1]);
+            let paragraph = Paragraph::new(lines).wrap(Wrap { trim: false });
+            let total = paragraph.line_count(inner.width);
+            let max_scroll =
+                total.saturating_sub(inner.height as usize).min(u16::MAX as usize) as u16;
+            tui.watch_scroll_max.set(max_scroll);
+            let offset = tui.watch_scroll.min(max_scroll);
+
             frame.render_widget(
-                Paragraph::new(lines)
-                    .block(verify_block)
-                    .wrap(Wrap { trim: false }),
+                paragraph.block(verify_block).scroll((offset, 0)),
                 outer[1],
             );
         }
@@ -135,7 +139,7 @@ pub fn render(frame: &mut Frame, tui: &TuiApp, exercise_id: &str) {
     let footer_text = if let Some(msg) = &tui.status_message {
         msg.as_str()
     } else {
-        " [h] Hint  [n] Next (if done)  [Esc] Exit watch  [q] Quit"
+        " [j/k] Scroll  [a] AI  [l] Lesson  [h] Hint  [n] Next  [x] Reset  [Esc] Exit  [q] Quit"
     };
     let footer = Paragraph::new(footer_text)
         .block(Block::bordered())
