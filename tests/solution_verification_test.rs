@@ -40,21 +40,18 @@ fn test_all_solutions_pass_verification() {
             continue;
         }
 
-        // Create a temporary exercise that points to the solution file
-        let mut solution_exercise = exercise.clone();
-        solution_exercise.file_path = exercises_root.join(&exercise.solution_path);
 
-        if !solution_exercise.file_path.exists() {
+        if !exercise.solution_path.exists() {
             failures.push(format!(
                 "MISSING SOLUTION: {} ({})",
                 exercise.id,
-                solution_exercise.file_path.display()
+                exercise.solution_path.display()
             ));
             continue;
         }
 
         let run_id = pipeline::next_run_id();
-        match pipeline::verify_exercise(&solution_exercise, &cache, run_id) {
+        match pipeline::verify_exercise(exercise, &exercise.solution_path, &cache, run_id) {
             Ok(result) => {
                 if !result.passed() {
                     let error = result.first_error().unwrap_or("unknown error");

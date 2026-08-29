@@ -63,6 +63,9 @@ fn run_with_app(command: Option<Commands>) -> anyhow::Result<()> {
         Some(Commands::HintAi { exercise }) => {
             app.cmd_hint_ai(&exercise)
         }
+        Some(Commands::Lesson { module, mark_read }) => {
+            app.cmd_lesson(&module, mark_read)
+        }
         Some(Commands::Solution { exercise }) => {
             app.cmd_solution(&exercise)
         }

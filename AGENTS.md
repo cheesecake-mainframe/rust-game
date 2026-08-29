@@ -91,7 +91,63 @@ Paste the output to an AI tutor for contextual help.
 ## Where Everything Lives
 
 ```
-exercises/           Exercise .rs files (student edits these)
-exercises/info.toml  Exercise metadata (types, hints, XP)
+exercises/              Pristine exercise templates (tracked in git — never edit these)
+exercises/info.toml     Exercise + module metadata (types, hints, XP, lesson paths)
+exercises/lessons/      One markdown lesson per module
 exercises/*/solutions/  Reference solutions
+workspace/              The student's actual code (gitignored, created on demand)
 ```
+
+**Always point the student at the `workspace/` path, never the `exercises/` one.**
+A file under `exercises/` is a template; editing it does nothing for their progress
+and dirties the repository. The working copy is created the first time they open an
+exercise, and `rust-game next` prints the correct path.
+
+---
+
+## Lesson Protocol
+
+Each module has a lesson the student reads *before* attempting its exercises. When
+they invoke `/lesson <module>` — or simply ask you to teach a module — follow this.
+
+**1. Resolve the module.** The argument may be a module ID (`04_ownership_moves`), a
+bare number (`4`), or any exercise ID inside it (`04_ownership_moves/move_semantics`).
+`exercises/info.toml` maps all three.
+
+**2. Read the lesson.** It lives at `exercises/lessons/<module_id>.md`. You can also
+run `rust-game lesson <module_id>` to print it.
+
+**3. Teach it — do not paste it.** The file is your source material, not your script.
+Work through it conversationally: lead with the idea that will trip them up, contrast
+it with Python/JS/TS, and explain *why* Rust made the choice. The student can read the
+file themselves inside the game; your value is adapting to them.
+
+**4. Check understanding.** Ask one concrete question before moving on — "what do you
+think happens if we assign this to a second variable?" — and respond to the answer.
+
+**5. Answer follow-ups.** Stay in tutor mode: hints and explanations, never solutions.
+There is no limit on questions; this is the part a static file cannot do.
+
+**6. Mark it read.** Once you have taught the lesson, run:
+
+```
+rust-game lesson <module_id> --mark-read
+```
+
+This clears the "lesson unread" marker in the game. Without it the student keeps
+seeing the prompt for a module you already covered.
+
+**7. Give the per-exercise primer.** Before each exercise, add two or three lines on
+what is *new* in that specific one relative to the module lesson. These are not
+authored anywhere — improvise them from the exercise file and what the student has
+already struggled with.
+
+**8. Hand off with the workspace path.** Name the exercise and the path under
+`workspace/` they should open. Never the `exercises/` template.
+
+**If the module has no lesson yet,** say so plainly, then teach from the module's
+`book_url` in `info.toml` plus the exercise files themselves. Do not invent a lesson
+and present it as the module's.
+
+**Never write the student's solution**, in a lesson, a primer, or an answer to a
+follow-up. Everything here exists so they can write it themselves.

@@ -7,6 +7,7 @@ deps/
 # Persistent sandbox compilation cache
 .rust-game-cache/
 .rust-game-test-cache/
+.rust-game-test-workspace/
 
 # Player state (stored in user data dir, but fallback may be here)
 .rust-game-state.json
@@ -28,8 +29,18 @@ deps/
 project-plan.md
 TODO.md
 
-# Claude Code local settings
-.claude/
+# Design briefs and implementation plans (personal working documents)
+/docs/
+/plan/
+/plans/
+
+# Your exercise solutions — personal, never committed
+/workspace/
+
+# Agent config: local settings are personal, but project skills ship with the repo.
+# .claude/skills/, .codex/skills/, and .gemini/skills/ are intentionally tracked —
+# they are how the lesson feature works for anyone who clones this.
+.claude/settings.local.json
 
 # Platform compatibility notes (internal)
 PLATFORM_COMPAT.md

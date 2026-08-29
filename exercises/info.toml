@@ -17,6 +17,10 @@ flavor_text = "Every great Rustacean started here. Time to say hello."
 tier = "foundation"
 order = 1
 prerequisites = []
+lesson = "lessons/01_getting_started.md"
+book_url = "https://doc.rust-lang.org/book/ch01-02-hello-world.html"
+concepts = ["macros vs functions", "the println! bang", "fn main entry point", "Cargo project layout", "reading rustc errors"]
+
 
 [[modules]]
 id = "02_variables_types"
@@ -26,6 +30,10 @@ flavor_text = "In Rust, bindings are immutable by default. Let's understand why.
 tier = "foundation"
 order = 2
 prerequisites = ["01_getting_started"]
+lesson = "lessons/02_variables_types.md"
+book_url = "https://doc.rust-lang.org/book/ch03-01-variables-and-mutability.html"
+concepts = ["immutable bindings by default", "mut opt-in", "shadowing", "type inference and annotations", "constants"]
+
 
 [[modules]]
 id = "03_functions_control_flow"
@@ -35,6 +43,10 @@ flavor_text = "Expressions, not statements. Everything returns a value."
 tier = "foundation"
 order = 3
 prerequisites = ["02_variables_types"]
+lesson = "lessons/03_functions_control_flow.md"
+book_url = "https://doc.rust-lang.org/book/ch03-03-how-functions-work.html"
+concepts = ["expressions vs statements", "tail expressions as return values", "the unit type", "if as an expression", "exhaustive match", "loop, while, for"]
+
 
 [[modules]]
 id = "04_ownership_moves"
@@ -44,6 +56,10 @@ flavor_text = "This is it. The concept that makes Rust, Rust."
 tier = "foundation"
 order = 4
 prerequisites = ["03_functions_control_flow"]
+lesson = "lessons/04_ownership_moves.md"
+book_url = "https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html"
+concepts = ["stack vs heap", "the three ownership rules", "move semantics", "the Copy trait", "explicit clone", "drop and scope"]
+
 
 [[modules]]
 id = "05_borrowing_references"
@@ -53,12 +69,16 @@ flavor_text = "You can look, but can you touch? Learn the rules of borrowing."
 tier = "foundation"
 order = 5
 prerequisites = ["04_ownership_moves"]
+lesson = "lessons/05_borrowing_references.md"
+book_url = "https://doc.rust-lang.org/book/ch04-02-references-and-borrowing.html"
+concepts = ["borrowing with &", "mutable references", "aliasing XOR mutation", "non-lexical borrow lifetimes", "string slices"]
 
 # ============================================================
 # Exercises
 # ============================================================
 
 # --- Module 01: Getting Started ---
+
 
 [[exercises]]
 id = "01_getting_started/hello_world"
@@ -424,6 +444,10 @@ flavor_text = "Forget classes. Structs with impl blocks are Rust's way."
 tier = "intermediate"
 order = 6
 prerequisites = ["05_borrowing_references"]
+lesson = "lessons/06_structs_methods.md"
+book_url = "https://doc.rust-lang.org/book/ch05-01-defining-structs.html"
+concepts = ["structs and field types", "impl blocks and methods", "&self / &mut self / self", "associated functions", "tuple structs and the newtype pattern", "field privacy"]
+
 
 [[modules]]
 id = "07_enums_pattern_matching"
@@ -433,6 +457,10 @@ flavor_text = "Enums in Rust carry data. Match gives you exhaustive power."
 tier = "intermediate"
 order = 7
 prerequisites = ["05_borrowing_references"]
+lesson = "lessons/07_enums_pattern_matching.md"
+book_url = "https://doc.rust-lang.org/book/ch06-01-defining-an-enum.html"
+concepts = ["enums with data", "exhaustive match", "match as an expression", "Option instead of null", "if let and let else"]
+
 
 [[modules]]
 id = "08_error_handling"
@@ -442,6 +470,10 @@ flavor_text = "No exceptions. No null. Just Result and Option."
 tier = "intermediate"
 order = 8
 prerequisites = ["07_enums_pattern_matching"]
+lesson = "lessons/08_error_handling.md"
+book_url = "https://doc.rust-lang.org/book/ch09-02-recoverable-errors-with-result.html"
+concepts = ["Result<T, E>", "the ? operator", "From conversions between error types", "custom error enums with Display", "panic vs recoverable errors"]
+
 
 [[modules]]
 id = "09_collections"
@@ -451,6 +483,10 @@ flavor_text = "Vec, String, HashMap — the workhorses of Rust."
 tier = "intermediate"
 order = 9
 prerequisites = ["05_borrowing_references"]
+lesson = "lessons/09_collections.md"
+book_url = "https://doc.rust-lang.org/book/ch08-00-common-collections.html"
+concepts = ["Vec<T>", "String vs &str", "UTF-8 and string indexing", "HashMap and the entry API", "borrowing inside collections"]
+
 
 [[modules]]
 id = "10_modules_packages"
@@ -460,6 +496,10 @@ flavor_text = "Organize your code. Understand pub, mod, and use."
 tier = "intermediate"
 order = 10
 prerequisites = ["05_borrowing_references"]
+lesson = "lessons/10_modules_packages.md"
+book_url = "https://doc.rust-lang.org/book/ch07-02-defining-modules-to-control-scope-and-privacy.html"
+concepts = ["the module tree", "private by default", "pub, pub(crate), pub(super)", "paths with crate, self, super", "use and pub use re-exports"]
+
 
 [[modules]]
 id = "11_generics_traits"
@@ -469,6 +509,10 @@ flavor_text = "Traits are Rust's answer to interfaces — but so much more."
 tier = "advanced"
 order = 11
 prerequisites = ["06_structs_methods", "07_enums_pattern_matching"]
+lesson = "lessons/11_generics_traits.md"
+book_url = "https://doc.rust-lang.org/book/ch10-02-traits.html"
+concepts = ["generic type parameters", "trait definitions", "default methods", "trait bounds", "where clauses", "monomorphization"]
+
 
 [[modules]]
 id = "12_lifetimes"
@@ -478,6 +522,10 @@ flavor_text = "The final piece of the puzzle. How long does a reference live?"
 tier = "advanced"
 order = 12
 prerequisites = ["11_generics_traits"]
+lesson = "lessons/12_lifetimes.md"
+book_url = "https://doc.rust-lang.org/book/ch10-03-lifetime-syntax.html"
+concepts = ["lifetime annotations", "dangling references", "lifetime elision rules", "struct lifetime parameters", "borrow checker"]
+
 
 [[modules]]
 id = "13_closures_iterators"
@@ -487,6 +535,10 @@ flavor_text = "Functional programming meets zero-cost abstractions."
 tier = "advanced"
 order = 13
 prerequisites = ["11_generics_traits"]
+lesson = "lessons/13_closures_iterators.md"
+book_url = "https://doc.rust-lang.org/book/ch13-01-closures.html"
+concepts = ["closure capture modes", "Fn/FnMut/FnOnce", "move closures", "lazy iterator adaptors", "iter vs into_iter", "borrowing instead of cloning"]
+
 
 [[modules]]
 id = "14_smart_pointers"
@@ -496,6 +548,10 @@ flavor_text = "Box, Rc, Arc, RefCell — when stack allocation isn't enough."
 tier = "advanced"
 order = 14
 prerequisites = ["11_generics_traits"]
+lesson = "lessons/14_smart_pointers.md"
+book_url = "https://doc.rust-lang.org/book/ch15-05-interior-mutability.html"
+concepts = ["Box and heap allocation", "recursive types", "trait objects", "Rc shared ownership", "RefCell interior mutability", "runtime borrow checking"]
+
 
 [[modules]]
 id = "15_concurrency"
@@ -505,6 +561,10 @@ flavor_text = "Data races at compile time? Not in Rust."
 tier = "advanced"
 order = 15
 prerequisites = ["14_smart_pointers"]
+lesson = "lessons/15_concurrency.md"
+book_url = "https://doc.rust-lang.org/book/ch16-03-shared-state.html"
+concepts = ["thread spawn and move", "join handles", "mpsc channels", "Arc shared ownership", "Mutex locking", "Send and Sync"]
+
 
 [[modules]]
 id = "16_testing_docs"
@@ -514,6 +574,10 @@ flavor_text = "Testing is a first-class citizen in Rust."
 tier = "expert"
 order = 16
 prerequisites = ["13_closures_iterators"]
+lesson = "lessons/16_testing_docs.md"
+book_url = "https://doc.rust-lang.org/book/ch11-01-writing-tests.html"
+concepts = ["unit tests in #[cfg(test)] modules", "use super::* scoping", "assert macros", "#[should_panic] with expected", "doc tests as executable documentation"]
+
 
 [[modules]]
 id = "17_macros"
@@ -523,6 +587,10 @@ flavor_text = "Code that writes code. Powerful, but wield with care."
 tier = "expert"
 order = 17
 prerequisites = ["11_generics_traits"]
+lesson = "lessons/17_macros.md"
+book_url = "https://doc.rust-lang.org/book/ch20-05-macros.html"
+concepts = ["macro_rules! declarative macros", "fragment specifiers", "repetition and matching depth", "macro hygiene", "compile-time code generation"]
+
 
 [[modules]]
 id = "18_async_rust"
@@ -538,6 +606,10 @@ prerequisites = ["15_concurrency", "13_closures_iterators"]
 # ============================================================
 
 # --- Module 06: Structs & Methods ---
+lesson = "lessons/18_async_rust.md"
+book_url = "https://doc.rust-lang.org/book/ch17-05-traits-for-async.html"
+concepts = ["async fn as impl Future", "lazy futures inert until polled", "Poll::Ready and Poll::Pending", "manual polling with Context and Waker", "Pin, Unpin, and Box::pin"]
+
 
 [[exercises]]
 id = "06_structs_methods/defining_structs"

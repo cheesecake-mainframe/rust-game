@@ -59,6 +59,9 @@ mod tests {
             tier: Tier::Foundation,
             order: 1,
             prerequisites: prereqs.into_iter().map(String::from).collect(),
+            lesson: None,
+            book_url: None,
+            concepts: vec![],
         }
     }
 

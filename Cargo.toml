@@ -2,7 +2,7 @@
 name = "rust-game"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.80.0"
+rust-version = "1.88.0"
 description = "A gamified Rust learning CLI — exercises, XP, time trials, boss battles"
 license = "MIT"
 repository = "https://github.com/cheesecakeMafia/rust-game"
@@ -15,9 +15,10 @@ path = "src/main.rs"
 # CLI argument parsing
 clap = { version = "4", features = ["derive"] }
 
-# TUI framework
-ratatui = "0.29"
-crossterm = "0.28"
+# TUI framework (0.30 required by tui-markdown, which returns ratatui-core types;
+# unstable-rendered-line-info provides Paragraph::line_count for exact scroll clamping)
+ratatui = { version = "0.30", features = ["unstable-rendered-line-info"] }
+crossterm = "0.29"
 
 # File watching (no debouncer — we debounce manually for version compatibility)
 notify = "8.0"
@@ -26,6 +27,9 @@ notify = "8.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 toml = "0.8"
+
+# Markdown rendering for the in-TUI lesson reader
+tui-markdown = "0.3.9"
 
 # Error handling
 anyhow = "1.0"

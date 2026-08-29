@@ -40,6 +40,17 @@ pub struct TuiApp {
     pub mcq_correct: Option<bool>,
     // AI context screen state
     pub ai_context_scroll: u16,
+    // Lesson screen state
+    pub lesson_scroll: u16,
+    /// Largest useful scroll offset, written by the lesson renderer (which is
+    /// the only place the laid-out viewport size and the wrapped line count are
+    /// both known) and read by the key handler so scrolling stops at the end
+    /// instead of running into blank space.
+    pub lesson_max_scroll: std::cell::Cell<u16>,
+    /// The lesson currently being read. Cached here rather than loaded per
+    /// frame: `tui_markdown::from_str` borrows its input, and the render loop
+    /// ticks every 200ms.
+    pub current_lesson: Option<crate::lesson::Lesson>,
 }
 
 #[derive(Clone, PartialEq)]
@@ -51,6 +62,8 @@ pub enum Screen {
     Stats,
     MultipleChoice(String),
     AiContext(String),
+    /// Reading a module's lesson. Holds the module ID.
+    Lesson(String),
 }
 
 #[derive(Clone, PartialEq)]
@@ -85,6 +98,40 @@ impl TuiApp {
             mcq_feedback: None,
             mcq_correct: None,
             ai_context_scroll: 0,
+            lesson_scroll: 0,
+            lesson_max_scroll: std::cell::Cell::new(0),
+            current_lesson: None,
+        }
+    }
+
+    /// Open a module's lesson, loading and caching it.
+    /// Returns false (and sets a status message) when the module has no lesson.
+    fn open_lesson(&mut self, module_id: &str) -> bool {
+        let module = match self.app.catalog.get_module(module_id) {
+            Some(m) => m.clone(),
+            None => return false,
+        };
+        match crate::lesson::load(&module) {
+            Ok(Some(lesson)) => {
+                self.current_lesson = Some(lesson);
+                self.lesson_scroll = 0;
+                self.lesson_max_scroll.set(0);
+                self.screen = Screen::Lesson(module_id.to_string());
+                true
+            }
+            Ok(None) => {
+                let hint = module
+                    .book_url
+                    .as_deref()
+                    .unwrap_or("https://doc.rust-lang.org/book/");
+                self.status_message =
+                    Some(format!("No lesson yet for this module. See {}", hint));
+                false
+            }
+            Err(e) => {
+                self.status_message = Some(format!("Could not load lesson: {:#}", e));
+                false
+            }
         }
     }
 
@@ -97,20 +144,34 @@ impl TuiApp {
     }
 
     fn enter_watch_mode(&mut self, exercise_id: &str) {
-        if let Some(ex) = self.app.catalog.get_exercise(exercise_id) {
-            match ExerciseWatcher::new(&ex.file_path) {
-                Ok(w) => {
-                    self.watcher = Some(w);
-                    self.screen = Screen::WatchMode(exercise_id.to_string());
-                    self.watch_status = WatchStatus::Watching;
-                    self.watch_start = Some(Instant::now());
-                    self.hints_revealed = 0;
-                    self.verify_output = None;
-                    self.verify_passed = None;
-                }
-                Err(e) => {
-                    self.status_message = Some(format!("Watch failed: {:#}", e));
-                }
+        let ex = match self.app.catalog.get_exercise(exercise_id) {
+            Some(e) => e.clone(),
+            None => return,
+        };
+
+        // Materialize first. The watcher canonicalizes the file and watches its
+        // parent directory, so if the working copy does not exist yet the
+        // canonicalize silently falls back and no event would ever match.
+        let working = match self.app.workspace.ensure_materialized(&ex) {
+            Ok(p) => p,
+            Err(e) => {
+                self.status_message = Some(format!("Could not prepare exercise: {:#}", e));
+                return;
+            }
+        };
+
+        match ExerciseWatcher::new(&working) {
+            Ok(w) => {
+                self.watcher = Some(w);
+                self.screen = Screen::WatchMode(exercise_id.to_string());
+                self.watch_status = WatchStatus::Watching;
+                self.watch_start = Some(Instant::now());
+                self.hints_revealed = 0;
+                self.verify_output = None;
+                self.verify_passed = None;
+            }
+            Err(e) => {
+                self.status_message = Some(format!("Watch failed: {:#}", e));
             }
         }
     }
@@ -133,8 +194,9 @@ impl TuiApp {
             None => return,
         };
 
-        // Check if exercise file still exists
-        if !exercise.file_path.exists() {
+        // Check that the student's working copy still exists
+        let source = self.app.workspace.working_path(&exercise);
+        if !source.exists() {
             self.watch_status = WatchStatus::Failed(
                 "Exercise file not found. Press 'x' to reset it.".into(),
             );
@@ -145,7 +207,7 @@ impl TuiApp {
         let run_id = self.current_run_id;
         self.watch_status = WatchStatus::Verifying;
 
-        let result = match pipeline::verify_exercise(&exercise, &self.app.cache_dir, run_id) {
+        let result = match pipeline::verify_exercise(&exercise, &source, &self.app.cache_dir, run_id) {
             Ok(r) => r,
             Err(e) => {
                 self.watch_status = WatchStatus::Failed(format!("{:#}", e));
@@ -286,11 +348,20 @@ pub fn run(app: App) -> Result<()> {
         // Render
         terminal.draw(|frame| screens::render(frame, &tui))?;
 
-        // Check file watcher (non-blocking)
-        if let Screen::WatchMode(ref id) = tui.screen.clone() {
+        // Check file watcher (non-blocking).
+        //
+        // This loop ticks every 200ms, so nothing here should allocate on the
+        // common path. `matches!` tests the screen without holding a borrow;
+        // the exercise ID is only cloned once a change has actually fired, and
+        // the clone is what releases the borrow so `run_watch_verify` can take
+        // `&mut tui`.
+        if matches!(tui.screen, Screen::WatchMode(_)) {
             let file_changed = tui.watcher.as_mut().map(|w| w.poll_change()).unwrap_or(false);
             if file_changed {
-                tui.run_watch_verify(&id);
+                if let Screen::WatchMode(id) = &tui.screen {
+                    let id = id.clone();
+                    tui.run_watch_verify(&id);
+                }
             }
         }
 
@@ -343,6 +414,7 @@ fn handle_key(key: crossterm::event::KeyEvent, tui: &mut TuiApp) {
         Screen::Stats => handle_stats_key(key, tui),
         Screen::MultipleChoice(id) => handle_mcq_key(key, tui, &id.clone()),
         Screen::AiContext(id) => handle_ai_context_key(key, tui, &id.clone()),
+        Screen::Lesson(id) => handle_lesson_key(key, tui, &id.clone()),
     }
 }
 
@@ -396,6 +468,9 @@ fn handle_module_view_key(key: crossterm::event::KeyEvent, tui: &mut TuiApp) {
     match key.code {
         KeyCode::Esc => tui.screen = Screen::Home,
         KeyCode::Char('q') => tui.should_quit = true,
+        KeyCode::Char('l') => {
+            tui.open_lesson(&module_id);
+        }
         KeyCode::Down | KeyCode::Char('j') => {
             if tui.selected_exercise < max_ex {
                 tui.selected_exercise += 1;
@@ -474,8 +549,16 @@ fn handle_exercise_view_key(key: crossterm::event::KeyEvent, tui: &mut TuiApp) {
             // Temporarily enter watch mode logic for a single verify
             if let Some(ex) = tui.app.catalog.get_exercise(&exercise_id) {
                 let ex = ex.clone();
+                let source = match tui.app.workspace.ensure_materialized(&ex) {
+                    Ok(p) => p,
+                    Err(e) => {
+                        tui.verify_passed = Some(false);
+                        tui.verify_output = Some(format!("{:#}", e));
+                        return;
+                    }
+                };
                 let run_id = pipeline::next_run_id();
-                match pipeline::verify_exercise(&ex, &tui.app.cache_dir, run_id) {
+                match pipeline::verify_exercise(&ex, &source, &tui.app.cache_dir, run_id) {
                     Ok(result) => {
                         if result.passed() {
                             tui.app.state.record_attempt(&exercise_id);
@@ -516,7 +599,11 @@ fn handle_exercise_view_key(key: crossterm::event::KeyEvent, tui: &mut TuiApp) {
         }
         KeyCode::Char('o') => {
             if let Some(ex) = tui.app.catalog.get_exercise(&exercise_id) {
-                tui.status_message = Some(format!("Open: {}", ex.file_path.display()));
+                let ex = ex.clone();
+                match tui.app.workspace.ensure_materialized(&ex) {
+                    Ok(p) => tui.status_message = Some(format!("Open: {}", p.display())),
+                    Err(e) => tui.status_message = Some(format!("{:#}", e)),
+                }
             }
         }
         KeyCode::Char('n') => {
@@ -555,8 +642,18 @@ fn handle_watch_mode_key(key: crossterm::event::KeyEvent, tui: &mut TuiApp, exer
             }
         }
         KeyCode::Char('x') => {
-            // Reset exercise file to original (re-copy from broken state)
-            tui.status_message = Some("Use 'rust-game reset --exercise <ID>' from CLI to reset.".into());
+            // Restore the pristine template over the student's working copy.
+            if let Some(ex) = tui.app.catalog.get_exercise(exercise_id) {
+                let ex = ex.clone();
+                match tui.app.workspace.reset(&ex) {
+                    Ok(p) => {
+                        tui.status_message =
+                            Some(format!("Reset to the original exercise: {}", p.display()));
+                        tui.watch_status = WatchStatus::Watching;
+                    }
+                    Err(e) => tui.status_message = Some(format!("Reset failed: {:#}", e)),
+                }
+            }
         }
         _ => {}
     }
@@ -626,6 +723,32 @@ fn handle_mcq_key(key: crossterm::event::KeyEvent, tui: &mut TuiApp, exercise_id
                     tui.mcq_correct = Some(false);
                 }
             }
+        }
+        _ => {}
+    }
+}
+
+fn handle_lesson_key(key: crossterm::event::KeyEvent, tui: &mut TuiApp, module_id: &str) {
+    match key.code {
+        KeyCode::Esc => {
+            // Leave without marking read.
+            tui.current_lesson = None;
+            tui.screen = Screen::ModuleView(module_id.to_string());
+        }
+        KeyCode::Char('q') => tui.should_quit = true,
+        KeyCode::Char('m') => {
+            tui.app.state.mark_lesson_read(module_id);
+            let _ = tui.app.save();
+            tui.current_lesson = None;
+            tui.status_message = Some("Lesson marked as read.".into());
+            tui.screen = Screen::ModuleView(module_id.to_string());
+        }
+        KeyCode::Down | KeyCode::Char('j') => {
+            let max = tui.lesson_max_scroll.get();
+            tui.lesson_scroll = tui.lesson_scroll.saturating_add(1).min(max);
+        }
+        KeyCode::Up | KeyCode::Char('k') => {
+            tui.lesson_scroll = tui.lesson_scroll.saturating_sub(1);
         }
         _ => {}
     }

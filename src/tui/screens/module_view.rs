@@ -22,10 +22,21 @@ pub fn render(frame: &mut Frame, tui: &TuiApp, module_id: &str) {
     ])
     .split(area);
 
-    // Header
-    let header = Paragraph::new(format!("  {} — {}", module.name, module.flavor_text))
-        .block(Block::bordered().title(format!(" {} ", module.theme_name)))
-        .style(Style::new().fg(Color::Cyan));
+    // Header — flags an unread lesson so entering a module surfaces it.
+    let has_lesson = module.lesson.is_some();
+    let lesson_marker = if has_lesson && !tui.app.state.is_lesson_read(module_id) {
+        "   ● lesson unread"
+    } else {
+        ""
+    };
+    let header = Paragraph::new(Line::from(vec![
+        Span::styled(
+            format!("  {} — {}", module.name, module.flavor_text),
+            Style::new().fg(Color::Cyan),
+        ),
+        Span::styled(lesson_marker, Style::new().fg(Color::Yellow).bold()),
+    ]))
+    .block(Block::bordered().title(format!(" {} ", module.theme_name)));
     frame.render_widget(header, outer[0]);
 
     // Exercise list
@@ -72,8 +83,17 @@ pub fn render(frame: &mut Frame, tui: &TuiApp, module_id: &str) {
         .block(Block::bordered().title(" Exercises "));
     frame.render_widget(list, outer[1]);
 
-    // Footer
-    let footer = Paragraph::new(" [Enter] View  [Esc] Back  [q] Quit")
+    // Footer — a status message takes precedence over the key hints, matching
+    // exercise_view. Without this, pressing `l` on a module with no lesson
+    // would appear to do nothing at all.
+    let footer_text: String = if let Some(msg) = &tui.status_message {
+        msg.clone()
+    } else if has_lesson {
+        " [Enter] View  [l] Lesson  [Esc] Back  [q] Quit".into()
+    } else {
+        " [Enter] View  [Esc] Back  [q] Quit".into()
+    };
+    let footer = Paragraph::new(footer_text)
         .block(Block::bordered())
         .style(Style::new().fg(Color::DarkGray));
     frame.render_widget(footer, outer[2]);

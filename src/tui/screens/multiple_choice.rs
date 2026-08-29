@@ -29,7 +29,7 @@ pub fn render(frame: &mut Frame, tui: &TuiApp, exercise_id: &str) {
     frame.render_widget(header, outer[0]);
 
     // Code preview — read exercise file and display
-    let code = std::fs::read_to_string(&exercise.file_path)
+    let code = std::fs::read_to_string(tui.app.workspace.source_path(exercise))
         .unwrap_or_else(|_| "Could not read exercise file.".into());
 
     // Strip the header comments to show only the code

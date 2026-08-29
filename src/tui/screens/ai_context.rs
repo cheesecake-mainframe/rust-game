@@ -28,7 +28,7 @@ pub fn render(frame: &mut Frame, tui: &TuiApp, exercise_id: &str) {
     frame.render_widget(header, outer[0]);
 
     // Generate AI context
-    let source = std::fs::read_to_string(&exercise.file_path)
+    let source = std::fs::read_to_string(tui.app.workspace.source_path(exercise))
         .unwrap_or_else(|_| "Could not read exercise file.".into());
 
     let context = crate::ai::context_formatter::format_ai_context(

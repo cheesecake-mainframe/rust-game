@@ -62,19 +62,16 @@ pub enum Difficulty {
     Expert,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ExerciseStatus {
+    /// An exercise starts locked: its module's prerequisites are unmet until
+    /// the catalog says otherwise.
+    #[default]
     Locked,
     Available,
     InProgress,
     Completed,
-}
-
-impl Default for ExerciseStatus {
-    fn default() -> Self {
-        Self::Locked
-    }
 }
 
 // ─── Custom Checks ──────────────────────────────────────────
@@ -148,5 +145,13 @@ pub struct Module {
     pub tier: Tier,
     pub order: u32,
     pub prerequisites: Vec<String>,
+    /// Path to this module's lesson markdown, resolved against `exercises/`.
+    /// `None` means the module has no lesson yet — a supported state.
+    pub lesson: Option<PathBuf>,
+    /// The Rust Book chapter this module's lesson is drawn from.
+    pub book_url: Option<String>,
+    /// Short concept names this module covers, shown in the lesson header
+    /// and in the AI tutor context block.
+    pub concepts: Vec<String>,
     // exercises list is computed by the catalog, not stored here
 }

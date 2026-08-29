@@ -1,6 +1,6 @@
 # setup.ps1 — rust-game setup (Windows)
 #
-# Checks prerequisites (git, rustc >= 1.80.0, cargo), clones external
+# Checks prerequisites (git, rustc >= 1.88.0, cargo), clones external
 # reference material into deps/, and builds the project.
 # Safe to run multiple times.
 
