@@ -58,7 +58,7 @@ impl GameState {
     /// Create a fresh state for a new player.
     pub fn new() -> Self {
         Self {
-            version: 1,
+            version: crate::state::persistence::CURRENT_VERSION,
             player: PlayerState {
                 xp: 0,
                 level: 1,
@@ -168,7 +168,7 @@ mod tests {
     #[test]
     fn test_new_state() {
         let state = GameState::new();
-        assert_eq!(state.version, 1);
+        assert_eq!(state.version, crate::state::persistence::CURRENT_VERSION);
         assert_eq!(state.player.xp, 0);
         assert_eq!(state.player.level, 1);
         assert_eq!(state.exercises_completed(), 0);

@@ -6,11 +6,28 @@ use anyhow::{Context, Result};
 
 use crate::exercise::types::Exercise;
 
-const SANDBOX_CARGO_TOML: &str = r#"[package]
-name = "exercise_check"
-version = "0.1.0"
-edition = "2021"
-"#;
+/// Build the sandbox manifest for an exercise.
+///
+/// The package name is derived from the exercise ID rather than being a shared
+/// constant: with one name for all 65 sandboxes, a shared `CARGO_TARGET_DIR`
+/// lets one exercise's compiled artifacts satisfy another's build, which can
+/// report success for code that never compiled. The `ex_` prefix keeps the name
+/// a valid crate identifier for IDs that start with a digit — every module does.
+///
+/// The empty `[workspace]` table matters too: sandboxes live inside the repo,
+/// so without it, adding a workspace to the root manifest — or cloning this
+/// repo into someone else's workspace — breaks every verification.
+fn sandbox_manifest(package_name: &str) -> String {
+    format!(
+        "[package]\nname = \"{}\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[workspace]\n",
+        package_name
+    )
+}
+
+/// Turn an exercise ID into a valid cargo package name.
+fn package_name_for(exercise_id: &str) -> String {
+    format!("ex_{}", exercise_id.replace(['/', '-', '.', ' '], "_"))
+}
 
 /// A persistent sandbox for compiling exercises.
 ///
@@ -21,6 +38,7 @@ edition = "2021"
 /// and rebuilds when the toolchain is updated.
 pub struct Sandbox {
     dir: PathBuf,
+    package_name: String,
 }
 
 impl Sandbox {
@@ -29,7 +47,10 @@ impl Sandbox {
     /// `cache_root` is the `.rust-game-cache/` directory.
     pub fn for_exercise(cache_root: &Path, exercise: &Exercise) -> Result<Self> {
         let dir = cache_root.join(&exercise.id);
-        let sandbox = Self { dir };
+        let sandbox = Self {
+            dir,
+            package_name: package_name_for(&exercise.id),
+        };
         sandbox.ensure_project()?;
         sandbox.check_toolchain()?;
         Ok(sandbox)
@@ -37,7 +58,10 @@ impl Sandbox {
 
     /// Create a sandbox in a specific directory (for testing).
     pub fn in_dir(dir: PathBuf) -> Result<Self> {
-        let sandbox = Self { dir };
+        let sandbox = Self {
+            dir,
+            package_name: "ex_sandbox".to_string(),
+        };
         sandbox.ensure_project()?;
         Ok(sandbox)
     }
@@ -105,10 +129,12 @@ impl Sandbox {
                 .with_context(|| format!("Failed to create sandbox: {}", self.dir.display()))?;
         }
 
-        if !cargo_toml.exists() {
-            fs::write(&cargo_toml, SANDBOX_CARGO_TOML)
-                .context("Failed to write sandbox Cargo.toml")?;
-        }
+        // Written unconditionally: sandboxes created before per-exercise package
+        // names existed would otherwise keep the old shared name forever, since
+        // this used to write only when the file was absent. It is a few hundred
+        // bytes.
+        fs::write(&cargo_toml, sandbox_manifest(&self.package_name))
+            .context("Failed to write sandbox Cargo.toml")?;
 
         // Write a placeholder main.rs if none exists yet
         let main_rs = src_dir.join("main.rs");
