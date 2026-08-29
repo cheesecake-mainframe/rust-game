@@ -142,7 +142,7 @@ fn render_stats_panel(frame: &mut Frame, tui: &TuiApp, area: Rect) {
         .iter()
         .filter(|(_, s)| s.status == ExerciseStatus::Completed)
         .collect();
-    recent.sort_by(|a, b| b.1.completed_at.cmp(&a.1.completed_at));
+    recent.sort_by_key(|a| std::cmp::Reverse(a.1.completed_at));
 
     let mut lines = text;
     for (id, state) in recent.iter().take(5) {
