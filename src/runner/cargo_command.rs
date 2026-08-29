@@ -34,6 +34,18 @@ pub fn run_cargo(
         // Suppress cargo's incremental compilation status bar noise
         .env("CARGO_TERM_PROGRESS_WHEN", "never");
 
+    // Verification must not depend on the shell that launched the game.
+    // `RUSTFLAGS="-D warnings"` in a profile would fail a correct solution over
+    // an unused function, and a shared `CARGO_TARGET_DIR` lets one exercise's
+    // artifacts satisfy another's build — which can report success for code
+    // that does not compile.
+    //
+    // Deliberately not `env_clear()`: that would drop PATH, HOME, and the
+    // RUSTUP_* shims this runs behind, trading a rare bug for a common one.
+    for var in ENV_TO_SCRUB {
+        cmd.env_remove(var);
+    }
+
     // On Unix, create a new process group so we can kill the whole group
     #[cfg(unix)]
     {
@@ -48,46 +60,90 @@ pub fn run_cargo(
 
     let mut child = cmd.spawn().context("Failed to spawn cargo process")?;
 
-    // Wait with timeout using a polling approach
+    // Drain both pipes on their own threads *while* we wait.
+    //
+    // A pipe is a fixed-size kernel buffer (64 KiB on Linux). If we waited for
+    // the child before reading, a child that produced more than that would
+    // block forever in write() — and we would block forever waiting for it to
+    // exit. The timeout would then fire and report an infinite loop, which is
+    // exactly wrong: print-debugging inside a finite loop triggers it.
+    let out_handle = spawn_reader(child.stdout.take());
+    let err_handle = spawn_reader(child.stderr.take());
+
     let timed_out = wait_with_timeout(&mut child, timeout);
     let duration = start.elapsed();
 
     if timed_out {
+        // Killing the process group closes every write end — including any
+        // rustc grandchildren, which share the group via setsid — so the
+        // readers below reach EOF and their joins cannot hang.
         kill_process_tree(&child);
-        let _ = child.wait();
-        return Ok(CommandOutput {
-            success: false,
-            stdout: String::new(),
-            stderr: format!(
-                "Timeout: your code took longer than {} seconds to execute. \
-                 Check for infinite loops.",
-                timeout.as_secs()
-            ),
-            duration,
-            timed_out: true,
-        });
     }
 
-    // Process exited — read stdout and stderr from the pipes
-    let mut stdout_str = String::new();
-    let mut stderr_str = String::new();
+    // Reap the child exactly once, on both paths. A failure to reap is not
+    // worth discarding the output we captured, so this is deliberately not `?`.
+    let status = child.wait().ok();
 
-    if let Some(mut stdout) = child.stdout.take() {
-        let _ = stdout.read_to_string(&mut stdout_str);
-    }
-    if let Some(mut stderr) = child.stderr.take() {
-        let _ = stderr.read_to_string(&mut stderr_str);
-    }
+    let stdout_str = join_reader(out_handle);
+    let captured_stderr = join_reader(err_handle);
 
-    let status = child.wait().context("Failed to wait for cargo process")?;
+    let stderr_str = if timed_out {
+        // Keep what the run produced. A real timeout with thousands of lines of
+        // println! visible is itself the diagnosis; discarding it is what made
+        // the pipe deadlock indistinguishable from a genuine infinite loop.
+        format!(
+            "Timeout: your code took longer than {} seconds to execute. \
+             Check for infinite loops.\n\nOutput captured before the timeout:\n{}",
+            timeout.as_secs(),
+            captured_stderr
+        )
+    } else {
+        captured_stderr
+    };
 
     Ok(CommandOutput {
-        success: status.success(),
+        success: !timed_out && status.map(|s| s.success()).unwrap_or(false),
         stdout: stdout_str,
         stderr: stderr_str,
         duration,
-        timed_out: false,
+        timed_out,
     })
+}
+
+/// Cargo/rustc environment variables that would otherwise leak in from the
+/// user's shell and change what verification reports.
+const ENV_TO_SCRUB: [&str; 10] = [
+    "RUSTFLAGS",
+    "CARGO_ENCODED_RUSTFLAGS",
+    "CARGO_BUILD_RUSTFLAGS",
+    "CARGO_TARGET_DIR",
+    "CARGO_BUILD_TARGET_DIR",
+    "RUSTC_WRAPPER",
+    "RUSTC_WORKSPACE_WRAPPER",
+    "CARGO_INCREMENTAL",
+    "CARGO_BUILD_TARGET",
+    "RUSTC",
+];
+
+/// Move a child pipe onto a thread that reads it to end-of-file.
+fn spawn_reader<R: Read + Send + 'static>(
+    pipe: Option<R>,
+) -> Option<std::thread::JoinHandle<String>> {
+    pipe.map(|mut r| {
+        std::thread::spawn(move || {
+            let mut buf = String::new();
+            let _ = r.read_to_string(&mut buf);
+            buf
+        })
+    })
+}
+
+/// Collect a reader thread's output. A panicking reader yields an empty string
+/// rather than poisoning the whole verification.
+fn join_reader(handle: Option<std::thread::JoinHandle<String>>) -> String {
+    handle
+        .map(|h| h.join().unwrap_or_default())
+        .unwrap_or_default()
 }
 
 /// Poll the child process until it exits or the timeout is reached.

@@ -80,6 +80,16 @@ impl Workspace {
     /// before invoking this.
     pub fn reset(&self, exercise: &Exercise) -> Result<PathBuf> {
         let working = self.working_path(exercise);
+        // Keep one level of undo. The workspace is gitignored, so a sibling
+        // `.bak` costs nothing and is the only recovery path a reset has.
+        if working.exists() {
+            let backup = working.with_extension("rs.bak");
+            // Propagated, not ignored: the caller tells the student their work
+            // was backed up, and reset is otherwise unrecoverable.
+            fs::copy(&working, &backup).with_context(|| {
+                format!("Failed to back up {} before resetting it", working.display())
+            })?;
+        }
         copy_template(exercise, &working)?;
         Ok(working)
     }
