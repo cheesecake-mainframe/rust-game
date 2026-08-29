@@ -14,7 +14,7 @@ This is not a textbook. This is a game where the exercises ARE the game.
 - **7 exercise types** — fix compiler errors, debug logic bugs, implement from scratch, code transformations (Python to Rust), boss battles, reverse engineering (predict output), and optimization challenges
 - **XP system** with first-try bonuses, time trial bonuses, and streak multipliers
 - **Leveling** (1-20) with level-up celebrations
-- **Streak tracking** — builds on consecutive completions, breaks on quit/skip (not failure — experimentation is encouraged)
+- **Streak tracking** — builds on consecutive completions, resets after 24 hours without one. Never broken by a failed attempt — experiment freely
 - **Rich terminal UI** — dashboard, module map, exercise view, watch mode with live verification, stats breakdown
 - **Watch mode** — save your file, verification runs automatically, XP awarded instantly
 - **Boss battles** — multi-concept challenges that combine several topics
@@ -122,7 +122,7 @@ game prints it for you.
 | Streak 5-9 | 2.0x multiplier |
 | Streak 10+ | 3.0x multiplier |
 
-Streaks break on quit or skip, but **not on failure** — keep experimenting without penalty.
+A streak resets after 24 hours without a completion, but **never on failure** — keep experimenting without penalty.
 
 ---
 
@@ -161,7 +161,7 @@ That's it. No IDE plugins, no Docker, no accounts to create.
 
 ```bash
 # 1. Clone this repo
-git clone https://github.com/cheesecakeMafia/rust-game.git
+git clone https://github.com/cheesecake-mainframe/rust-game.git
 cd rust-game
 
 # 2. Run the setup script
@@ -206,6 +206,15 @@ rust-game clean-cache  Wipe compilation caches
 | `s` | Stats screen |
 | `Esc` | Go back |
 | `q` | Quit |
+
+---
+
+## Disk Usage
+
+Each exercise gets its own persistent cargo sandbox under `.rust-game-cache/`
+so re-verification is incremental. That costs roughly 8 MB per exercise you
+attempt — a few hundred MB if you work through all 65. `make clean` removes it;
+nothing is lost but compile time.
 
 ---
 

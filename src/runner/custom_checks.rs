@@ -31,11 +31,6 @@ fn run_single_check(stripped_source: &str, check: &CustomCheck) -> CheckResult {
         }
         CustomCheckType::NoCollect => has_pattern(stripped_source, ".collect()"),
         CustomCheckType::NoBoxDyn => has_pattern(stripped_source, "Box<dyn"),
-        CustomCheckType::MaxLines => {
-            // MaxLines is handled specially — we check line count
-            // The actual max is encoded in the message (TODO: add max_lines field)
-            false
-        }
     };
 
     if found {
@@ -94,6 +89,32 @@ fn strip_comments_and_strings(source: &str) -> String {
                     _ => result.push(ch),
                 }
             }
+            '\'' => {
+                // A tick opens either a char literal ('a', '\n', '\'') or a
+                // lifetime ('a, as in `&'a str`). Only the literal form may be
+                // skipped: treating a lifetime as one swallows every character
+                // to the next tick, which on a file with an odd number of them
+                // means the rest of the source vanishes from the check.
+                let mut look = chars.clone();
+                let is_char_literal = match (look.next(), look.next()) {
+                    (Some('\\'), _) => true,       // escaped: '\n', '\'', '\\'
+                    (Some(_), Some('\'')) => true,  // simple:  'a'
+                    _ => false,                     // otherwise a lifetime
+                };
+
+                if is_char_literal {
+                    let mut prev = '\'';
+                    for c in chars.by_ref() {
+                        if c == '\'' && prev != '\\' {
+                            break;
+                        }
+                        prev = if prev == '\\' && c == '\\' { ' ' } else { c };
+                    }
+                    result.push_str("''"); // placeholder
+                } else {
+                    result.push('\'');
+                }
+            }
             '"' => {
                 // String literal — skip until closing quote
                 // (doesn't handle escaped quotes perfectly but good enough)
@@ -146,6 +167,56 @@ fn main() {}
 "#;
         let results = run_custom_checks(source, &[make_check(CustomCheckType::NoClone)]);
         assert!(!results[0].passed);
+    }
+
+    #[test]
+    fn test_lifetime_annotations_do_not_swallow_source() {
+        // A lifetime tick used to open char-literal consumption, hiding every
+        // subsequent line from the check — so a `.clone()` below a lifetime
+        // annotation passed silently and awarded XP for an unsolved constraint.
+        let source = r#"
+fn names<'a>(items: &'a [String]) -> Vec<&'a str> {
+    items.iter().map(|s| s.as_str()).collect()
+}
+
+fn sneaky(v: &Vec<i32>) -> Vec<i32> {
+    v.clone()
+}
+"#;
+        let checks = vec![CustomCheck {
+            check_type: CustomCheckType::NoClone,
+            message: "no clone".into(),
+        }];
+        let results = run_custom_checks(source, &checks);
+        assert!(
+            !results[0].passed,
+            "a .clone() after a lifetime annotation must still be caught"
+        );
+    }
+
+    #[test]
+    fn test_char_literals_do_not_open_string_mode() {
+        // The original bug this arm exists for: `'"'` used to be read as a
+        // string opener, swallowing source up to the next quote.
+        let source = r#"
+fn main() {
+    let quote = '"';
+    let tick = '\'';
+    let slash = '\\';
+    let v = vec![1];
+    let w = v.clone();
+    println!("{:?} {} {} {:?}", quote, tick, slash, w);
+}
+"#;
+        let checks = vec![CustomCheck {
+            check_type: CustomCheckType::NoClone,
+            message: "no clone".into(),
+        }];
+        let results = run_custom_checks(source, &checks);
+        assert!(
+            !results[0].passed,
+            "char literals must not hide the .clone() that follows them"
+        );
     }
 
     #[test]

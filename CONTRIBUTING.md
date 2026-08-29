@@ -5,7 +5,7 @@ Thanks for your interest in improving rust-game! Here's how to contribute.
 ## Quick Setup
 
 ```bash
-git clone https://github.com/cheesecakeMafia/rust-game.git
+git clone https://github.com/cheesecake-mainframe/rust-game.git
 cd rust-game
 cargo build
 cargo test

@@ -40,10 +40,12 @@ pub fn render(frame: &mut Frame, tui: &TuiApp) {
     render_stats_panel(frame, tui, main_layout[1]);
 
     // Footer
-    let mut footer_text = " [Enter] Select  [n] Next  [s] Stats  [q] Quit";
-    if let Some(msg) = &tui.status_message {
-        footer_text = Box::leak(msg.clone().into_boxed_str());
-    }
+    // Owned, not `Box::leak` — this renders every 200ms tick, so leaking a
+    // status message here leaked an allocation five times a second.
+    let footer_text: String = match &tui.status_message {
+        Some(msg) => msg.clone(),
+        None => " [Enter] Select  [n] Next  [s] Stats  [q] Quit".to_string(),
+    };
     let footer = Paragraph::new(footer_text)
         .block(Block::bordered())
         .style(Style::new().fg(Color::DarkGray));

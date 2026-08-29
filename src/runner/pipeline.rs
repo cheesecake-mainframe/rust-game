@@ -183,7 +183,13 @@ pub fn verify_exercise(
             return Ok(VerificationResult {
                 run_id,
                 exercise_id: exercise.id.clone(),
-                status: VerificationStatus::Failed,
+                // Match the compile and test steps above, which distinguish a
+                // timeout from a failure.
+                status: if clippy_result.timed_out {
+                    VerificationStatus::Timeout
+                } else {
+                    VerificationStatus::Failed
+                },
                 steps,
                 total_duration: start.elapsed(),
             });

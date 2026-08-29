@@ -5,7 +5,7 @@ edition = "2021"
 rust-version = "1.88.0"
 description = "A gamified Rust learning CLI — exercises, XP, time trials, boss battles"
 license = "MIT"
-repository = "https://github.com/cheesecakeMafia/rust-game"
+repository = "https://github.com/cheesecake-mainframe/rust-game"
 
 [[bin]]
 name = "rust-game"
