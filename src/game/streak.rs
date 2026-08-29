@@ -28,11 +28,6 @@ impl StreakState {
         }
     }
 
-    /// Called when the student explicitly quits or skips an exercise.
-    /// NOT called on failure — failures don't break streaks.
-    pub fn break_streak(&mut self) {
-        self.current = 0;
-    }
 
     /// Check the 24-hour grace period on app startup.
     /// If last_exercise_at is more than 24 hours ago, reset the streak.
@@ -81,17 +76,6 @@ mod tests {
         assert_eq!(s.best, 2);
     }
 
-    #[test]
-    fn test_break_and_best_preserved() {
-        let mut s = StreakState::new();
-        s.increment();
-        s.increment();
-        s.increment();
-        assert_eq!(s.best, 3);
-        s.break_streak();
-        assert_eq!(s.current, 0);
-        assert_eq!(s.best, 3); // Best is preserved
-    }
 
     #[test]
     fn test_grace_period_within_24h() {

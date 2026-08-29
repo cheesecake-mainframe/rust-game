@@ -13,7 +13,8 @@ fn main() {
     let result = match cli.command {
         Some(Commands::CleanCache) => {
             // CleanCache doesn't need the full app (no catalog/state)
-            runner::sandbox::clean_all_sandboxes(&std::path::PathBuf::from(".rust-game-cache"))
+            let exercises_dir = App::exercises_dir_or_cwd();
+            runner::sandbox::clean_all_sandboxes(&App::cache_dir_for(&exercises_dir))
                 .map(|_| println!("Sandbox cache cleaned."))
         }
         _ => run_with_app(cli.command),

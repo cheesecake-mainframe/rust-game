@@ -85,3 +85,17 @@ fn lesson_metadata_keys_travel_together() {
         incomplete.join("\n  ")
     );
 }
+
+/// The Lesson Protocol lives in three byte-identical files, one per agent.
+/// Nothing enforced that until now, so a fix applied to one could silently
+/// leave the other two teaching something different.
+#[test]
+fn agent_context_files_stay_byte_identical() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let claude = std::fs::read(root.join("CLAUDE.md")).expect("CLAUDE.md");
+    let agents = std::fs::read(root.join("AGENTS.md")).expect("AGENTS.md");
+    let gemini = std::fs::read(root.join("GEMINI.md")).expect("GEMINI.md");
+
+    assert_eq!(claude, agents, "CLAUDE.md and AGENTS.md have drifted apart");
+    assert_eq!(claude, gemini, "CLAUDE.md and GEMINI.md have drifted apart");
+}

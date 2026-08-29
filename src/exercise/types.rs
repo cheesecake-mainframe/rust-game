@@ -89,7 +89,6 @@ pub enum CustomCheckType {
     NoUnwrap,
     NoCollect,
     NoBoxDyn,
-    MaxLines,
 }
 
 // ─── Multiple Choice ────────────────────────────────────────
