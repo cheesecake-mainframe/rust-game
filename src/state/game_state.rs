@@ -18,6 +18,10 @@ pub struct GameState {
     /// still parses before the migration in `persistence` runs.
     #[serde(default)]
     pub lessons: HashMap<String, LessonState>,
+    /// Settings that outlive a session. `#[serde(default)]` for the same reason
+    /// as `lessons`: a version-2 file must parse before the migration runs.
+    #[serde(default)]
+    pub preferences: Preferences,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -38,6 +42,29 @@ pub struct ExerciseState {
     pub completed_at: Option<DateTime<Utc>>,
     pub time_taken_secs: Option<u64>,
     pub first_attempted_at: Option<DateTime<Utc>>,
+    /// Has the reference solution been shown for this exercise?
+    ///
+    /// Recorded so the XP total keeps meaning something to its owner. It
+    /// deliberately carries no penalty — being stuck is real, and staring
+    /// longer teaches nothing.
+    #[serde(default)]
+    pub solution_viewed: bool,
+}
+
+/// How the editor and the compiler output are arranged.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EditorLayout {
+    SideBySide,
+    Stacked,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct Preferences {
+    /// `None` until the student presses the toggle; the layout is then chosen
+    /// from the terminal width on each run.
+    #[serde(default)]
+    pub editor_layout: Option<EditorLayout>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -70,6 +97,7 @@ impl GameState {
             exercises: HashMap::new(),
             modules: HashMap::new(),
             lessons: HashMap::new(),
+            preferences: Preferences::default(),
         }
     }
 
@@ -84,6 +112,39 @@ impl GameState {
     /// Has this module's lesson been read?
     pub fn is_lesson_read(&self, module_id: &str) -> bool {
         self.lessons.get(module_id).map(|l| l.read).unwrap_or(false)
+    }
+
+    /// Record that the reference solution was shown for an exercise.
+    ///
+    /// Creates the entry when absent: the solution can be looked at long before
+    /// the exercise is ever completed, and completion is otherwise the only
+    /// thing that creates one.
+    pub fn mark_solution_viewed(&mut self, exercise_id: &str) {
+        self.get_or_create_exercise(exercise_id).solution_viewed = true;
+    }
+
+    /// Has the reference solution been shown for this exercise?
+    pub fn has_viewed_solution(&self, exercise_id: &str) -> bool {
+        self.exercises
+            .get(exercise_id)
+            .map(|e| e.solution_viewed)
+            .unwrap_or(false)
+    }
+
+    /// Clear the record for one exercise.
+    ///
+    /// Called by the reset key. Deliberately does *not* touch XP: the CLI reset
+    /// forfeits XP via `forget_exercise` and the TUI reset does not, and this is
+    /// a bookkeeping fix, not a place to change that.
+    pub fn clear_solution_viewed(&mut self, exercise_id: &str) {
+        if let Some(e) = self.exercises.get_mut(exercise_id) {
+            e.solution_viewed = false;
+        }
+    }
+
+    /// How many exercises have had their solution shown.
+    pub fn solutions_viewed_count(&self) -> usize {
+        self.exercises.values().filter(|e| e.solution_viewed).count()
     }
 
     /// Forget an exercise entirely: drop its record and take back the XP it
@@ -118,6 +179,7 @@ impl GameState {
                 completed_at: None,
                 time_taken_secs: None,
                 first_attempted_at: None,
+                solution_viewed: false,
             })
     }
 
