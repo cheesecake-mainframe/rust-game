@@ -8,6 +8,28 @@ This is not a textbook. This is a game where the exercises ARE the game.
 
 ---
 
+## Who This Is For
+
+**You should already know how to program.** rust-game assumes you are comfortable
+with variables, functions, loops, conditionals, and data structures, and that you
+have written real code in at least one language — Python, JavaScript and
+TypeScript are the ones its lessons compare against most often. It does not teach
+programming.
+
+What it teaches is the part of Rust that is genuinely new even to experienced
+developers: ownership, borrowing, lifetimes, traits, pattern matching, and how to
+read what the borrow checker is telling you. Exercise one assumes you know what a
+function call is. It does not assume you have ever seen `&mut`.
+
+**If you are new to programming entirely, this is the wrong starting point.** Rust
+is a demanding first language, and a game that drops you straight into compiler
+errors is a demanding way to meet it.
+[The Rust Programming Language](https://doc.rust-lang.org/book/) is free, gentler,
+and written to be read from zero — come back here once loops and functions are
+second nature.
+
+---
+
 ## What You Get
 
 - **65 exercises** across 18 modules, from "Hello World" to async Rust
@@ -15,11 +37,13 @@ This is not a textbook. This is a game where the exercises ARE the game.
 - **XP system** with first-try bonuses, time trial bonuses, and streak multipliers
 - **Leveling** (1-20) with level-up celebrations
 - **Streak tracking** — builds on consecutive completions, resets after 24 hours without one. Never broken by a failed attempt — experiment freely
-- **Rich terminal UI** — dashboard, module map, exercise view, watch mode with live verification, stats breakdown
-- **Watch mode** — save your file, verification runs automatically, XP awarded instantly
+- **Rich terminal UI** — dashboard, module map, exercise view, editor with live verification, stats breakdown
+- **A built-in editor** — write your solution in the game, with Rust syntax highlighting and the compiler output beside it. `Ctrl+S` saves and verifies. Prefer your own editor? That still works — external saves are picked up automatically
+- **Side-by-side or stacked** — `Ctrl+J` switches the split to suit your terminal
+- **Compare with the reference** — `Ctrl+D` shows your code beside the model solution with the differences highlighted. No XP penalty; it is simply recorded, so your stats keep meaning something
 - **Boss battles** — multi-concept challenges that combine several topics
 - **Time trials** — bonus XP if you solve exercises under the time limit
-- **Lessons before exercises** — one authored lesson per module, readable in the TUI or taught conversationally by Claude Code, Codex, or Gemini via `/lesson`
+- **Lessons before exercises** — one authored lesson per module, which opens by itself the first time you enter a module. Read it in the TUI, or have Claude Code, Codex or Gemini teach it conversationally via `/lesson`
 - **AI tutor integration** — `hint-ai` command formats your exercise context for pasting into any AI chat
 - **Persistent progress** — your XP, level, and streak survive across sessions
 
@@ -146,6 +170,10 @@ Each tool also ships a project-scoped `/lesson` skill (`.claude/skills/`, `.code
 lesson conversationally, answers your follow-up questions, and hands you the first
 exercise. The shared teaching protocol lives in the context files above.
 
+The game opens an unread lesson by itself the first time you enter a module, so you
+will usually have read it before asking an agent anything. Ask them the parts the
+file could not answer.
+
 Use `rust-game hint-ai <exercise>` to generate a formatted context block with your current code, compiler errors, hints, and progress — paste it into any AI chat for targeted help.
 
 No AI tool is required. Exercises include progressive hints you can reveal with `h`.
@@ -184,17 +212,19 @@ cargo run
 ### CLI Commands
 
 ```
-rust-game              Launch the TUI dashboard
-rust-game list         List all modules and exercises
-rust-game verify ID    Verify a single exercise
-rust-game hint ID      Show progressive hints
-rust-game hint-ai ID   Format context for AI tutor
-rust-game lesson MOD   Print a module's lesson (--mark-read to mark it read)
-rust-game solution ID  Show the reference solution
-rust-game stats        Show your progress
-rust-game next         Jump to the next available exercise
-rust-game reset --all  Reset all progress
-rust-game clean-cache  Wipe compilation caches
+rust-game                     Launch the TUI dashboard
+rust-game list                List all modules and exercises
+rust-game watch ID            Watch one exercise and verify on every save
+rust-game verify ID           Verify a single exercise right now
+rust-game hint ID             Show progressive hints
+rust-game hint-ai ID          Format context for an AI tutor
+rust-game lesson MOD          Print a module's lesson (--mark-read to mark it read)
+rust-game solution ID         Show the reference solution (recorded, like Ctrl+D)
+rust-game stats               Show your progress
+rust-game next                Jump to the next available exercise
+rust-game reset --exercise ID Restore one exercise to its original state
+rust-game reset --all         Reset all progress (your code in workspace/ is kept)
+rust-game clean-cache         Wipe compilation caches
 ```
 
 ### Key Bindings (TUI)
@@ -268,7 +298,10 @@ rust-game targets **Linux, macOS, and Windows**.
 
 - Process cleanup uses `setsid`/`killpg` on Unix and `taskkill /T` on Windows
 - State is stored in your platform's data directory (`~/.local/share/`, `~/Library/Application Support/`, `%APPDATA%`)
-- File watching uses `notify` v8 with 300ms debouncing
+- File watching uses `notify` v8 with a 300ms trailing-edge debounce
+- The editor's paste uses the system clipboard, which routes through X11 on Linux.
+  Copying *out* is your terminal's own selection — the editor deliberately never
+  captures the mouse, so click-and-drag keeps working
 
 ---
 
