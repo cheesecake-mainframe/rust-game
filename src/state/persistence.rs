@@ -8,7 +8,7 @@ use super::game_state::GameState;
 const STATE_DIR_NAME: &str = "rust-game";
 const STATE_FILE_NAME: &str = "state.json";
 const BACKUP_FILE_NAME: &str = "state.json.bak";
-pub(crate) const CURRENT_VERSION: u32 = 2;
+pub(crate) const CURRENT_VERSION: u32 = 3;
 
 /// Determine the state file path.
 ///
@@ -217,8 +217,12 @@ fn migrate_state(mut state: GameState) -> GameState {
     if state.version == 1 {
         state.version = 2;
     }
-    // When CURRENT_VERSION becomes 3, add:
-    //   if state.version == 2 { /* migrate v2 → v3 fields */; state.version = 3; }
+    // v2 → v3 added `solution_viewed` on each exercise and the `preferences`
+    // block. As with v1 → v2 there is nothing to move: `#[serde(default)]` on
+    // both already supplied them when the v2 file was parsed.
+    if state.version == 2 {
+        state.version = 3;
+    }
 
     state.version = CURRENT_VERSION;
     state
@@ -295,7 +299,7 @@ mod tests {
     }
 
     #[test]
-    fn test_v1_state_migrates_to_v2_with_empty_lessons() {
+    fn test_v1_state_migrates_to_current_with_empty_lessons() {
         // A version-1 file predates the `lessons` map entirely.
         let json = r#"{"version": 1, "player": {"xp": 50, "level": 2, "current_streak": 3,
             "best_streak": 3, "total_time_played_secs": 0, "last_exercise_at": null},
@@ -308,8 +312,10 @@ mod tests {
 
         let migrated = migrate_state(state);
         assert_eq!(migrated.version, CURRENT_VERSION);
-        assert_eq!(migrated.version, 2);
+        assert_eq!(migrated.version, 3);
         assert!(migrated.lessons.is_empty());
+        // v3's additions arrive defaulted.
+        assert!(migrated.preferences.editor_layout.is_none());
         // Progress must survive the migration untouched.
         assert_eq!(migrated.player.xp, 50);
         assert_eq!(migrated.player.level, 2);
