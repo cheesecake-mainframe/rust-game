@@ -11,6 +11,10 @@ pub struct ExerciseWatcher {
     rx: mpsc::Receiver<notify::Result<notify::Event>>,
     watched_path: PathBuf,
     last_event: Option<Instant>,
+    /// A change has been seen but not yet reported. Without this the debounce
+    /// swallowed saves outright: a second event inside the window updated
+    /// `last_event`, returned false, and nothing ever fired it.
+    pending: bool,
     debounce_duration: Duration,
 }
 
@@ -42,13 +46,17 @@ impl ExerciseWatcher {
             rx,
             watched_path: exercise_path.canonicalize().unwrap_or(exercise_path.to_path_buf()),
             last_event: None,
+            pending: false,
             debounce_duration: Duration::from_millis(300),
         })
     }
 
     /// Check for file changes (non-blocking).
-    /// Returns true if the watched file has changed and the debounce
-    /// window has passed since the last reported change.
+    ///
+    /// Purely trailing-edge: a burst of events fires exactly once, `debounce`
+    /// after the last of them. Firing on the leading edge as well would double
+    /// verify, because editors routinely emit a truncate and a write as two
+    /// separate events that can land in different polls.
     pub fn poll_change(&mut self) -> bool {
         let mut saw_relevant_event = false;
 
@@ -71,28 +79,20 @@ impl ExerciseWatcher {
         }
 
         if saw_relevant_event {
-            let now = Instant::now();
-            // Debounce: only fire if enough time passed since last event
-            if let Some(last) = self.last_event {
-                if now.duration_since(last) < self.debounce_duration {
-                    // Too soon — record the event time but don't fire yet.
-                    // The next poll_change call (on the next tick) will fire it.
-                    self.last_event = Some(now);
-                    return false;
-                }
-            }
-            self.last_event = Some(now);
-            return true;
+            // Restart the window; report nothing yet.
+            self.pending = true;
+            self.last_event = Some(Instant::now());
+            return false;
         }
 
-        // Check if we have a pending debounced event that's now ready
-        if let Some(last) = self.last_event {
-            if Instant::now().duration_since(last) >= self.debounce_duration {
-                // The debounce window passed — we had a pending event
-                // But only fire if there was actually a pending event
-                // (last_event is reset after firing in the true branch above)
-                // This won't double-fire because we only get here if
-                // saw_relevant_event was false this time.
+        // Quiet poll: fire once the window has elapsed.
+        if self.pending {
+            if let Some(last) = self.last_event {
+                if Instant::now().duration_since(last) >= self.debounce_duration {
+                    self.pending = false;
+                    self.last_event = None;
+                    return true;
+                }
             }
         }
 
