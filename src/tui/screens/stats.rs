@@ -73,6 +73,14 @@ pub fn render(frame: &mut Frame, tui: &TuiApp) {
             Span::styled("  Time Played:  ", Style::new().fg(Color::DarkGray)),
             Span::raw(format!("{} minutes", p.total_time_played_secs / 60)),
         ]),
+        Line::from(vec![
+            Span::styled("  Solutions:    ", Style::new().fg(Color::DarkGray)),
+            Span::raw(format!(
+                "answer shown for {} exercise{}",
+                tui.app.state.solutions_viewed_count(),
+                if tui.app.state.solutions_viewed_count() == 1 { "" } else { "s" }
+            )),
+        ]),
         Line::from(""),
         Line::from(Span::styled(
             "  Module Progress",

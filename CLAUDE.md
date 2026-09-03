@@ -98,10 +98,18 @@ exercises/*/solutions/  Reference solutions
 workspace/              The student's actual code (gitignored, created on demand)
 ```
 
-**Always point the student at the `workspace/` path, never the `exercises/` one.**
-A file under `exercises/` is a template; editing it does nothing for their progress
-and dirties the repository. The working copy is created the first time they open an
-exercise, and `rust-game next` prints the correct path.
+**Students edit in the TUI by default.** Pressing `w` on an exercise opens it in a
+built-in editor with the compiler output beside it; `Ctrl+S` saves and verifies.
+Ordinary keys type, so game commands are on `Ctrl` (`Ctrl+G` hint, `Ctrl+L`
+lesson, `Ctrl+A` AI context, `Ctrl+D` to compare against the reference
+solution, `Ctrl+C` to quit). They do not need a second terminal.
+
+**If they do use their own editor, always point them at the `workspace/` path,
+never the `exercises/` one.** A file under `exercises/` is a template; editing it
+does nothing for their progress and dirties the repository. The working copy is
+created the first time they open an exercise, and `rust-game next` prints the
+correct path. Both routes work on the same file — an external save is reloaded
+into the built-in editor automatically.
 
 ---
 
@@ -116,6 +124,11 @@ bare number (`4`), or any exercise ID inside it (`04_ownership_moves/move_semant
 
 **2. Read the lesson.** It lives at `exercises/lessons/<module_id>.md`. You can also
 run `rust-game lesson <module_id>` to print it.
+
+The game now opens an unread lesson by itself the first time the student enters a
+module's exercises, so they have usually seen the file before asking you. Teach it
+anyway — it is source material, not a substitute for the conversation — but do not
+assume they arrived cold.
 
 **3. Teach it — do not paste it.** The file is your source material, not your script.
 Work through it conversationally: lead with the idea that will trip them up, contrast
@@ -142,8 +155,9 @@ what is *new* in that specific one relative to the module lesson. These are not
 authored anywhere — improvise them from the exercise file and what the student has
 already struggled with.
 
-**8. Hand off with the workspace path.** Name the exercise and the path under
-`workspace/` they should open. Never the `exercises/` template.
+**8. Hand off to the exercise.** Name the exercise and tell them to press `w` on it
+to start editing. If they prefer their own editor, give the path under `workspace/`
+— never the `exercises/` template.
 
 **If the module has no lesson yet,** say so plainly, then teach from the module's
 `book_url` in `info.toml` plus the exercise files themselves. Do not invent a lesson

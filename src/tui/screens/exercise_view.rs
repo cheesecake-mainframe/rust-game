@@ -89,13 +89,13 @@ pub fn render(frame: &mut Frame, tui: &TuiApp, exercise_id: &str) {
     frame.render_widget(verify_content, main_layout[0]);
 
     // Hints — uses hint_panel widget
-    hint_panel::render(frame, main_layout[1], &exercise.hints, tui.hints_revealed);
+    hint_panel::render(frame, main_layout[1], &exercise.hints, tui.hints_revealed, "'h'");
 
     // Footer
     let footer_text = if let Some(msg) = &tui.status_message {
         msg.clone()
     } else {
-        " [w] Watch  [v] Verify  [h] Hint  [o] Open  [n] Next  [Esc] Back  [q] Quit".into()
+        " [w] Edit  [v] Verify  [h] Hint  [o] Show path  [n] Next  [Esc] Back  [q] Quit".into()
     };
     let footer = Paragraph::new(footer_text)
         .block(Block::bordered())

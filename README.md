@@ -2,7 +2,7 @@
 
 **A gamified CLI tool for learning Rust through exercises, XP, streaks, boss battles, and a rich terminal UI.**
 
-Learn Rust by actually writing Rust. Edit exercises in your editor, save, and get instant feedback — the tool compiles your code, runs tests, awards XP, and tracks your streak. Designed for developers who already know Python, JavaScript, or TypeScript and want to learn Rust's unique concepts: ownership, borrowing, lifetimes, traits, pattern matching, and the borrow checker.
+Learn Rust by actually writing Rust. Write your solution in the built-in editor — or in your own, if you prefer — save, and get instant feedback: the tool compiles your code, runs tests, awards XP, and tracks your streak. Designed for developers who already know Python, JavaScript, or TypeScript and want to learn Rust's unique concepts: ownership, borrowing, lifetimes, traits, pattern matching, and the borrow checker.
 
 This is not a textbook. This is a game where the exercises ARE the game.
 
@@ -79,19 +79,24 @@ Any exercise can also be a **time trial** — bonus +15 XP if solved under the t
 
 1. **Launch the TUI** — run `rust-game` to see the dashboard with your module map, XP, level, and streak
 2. **Pick a module** — navigate with `j/k` and press `Enter`
-3. **Read the lesson** — press `l`. Modules you haven't read are flagged. Press `m` to mark it read
-4. **Select an exercise** — read the instructions, open the file in your editor
-5. **Enter watch mode** — press `w` and the tool watches your file for changes
-6. **Edit and save** — verification runs automatically. If tests pass, you earn XP
-7. **Level up** — progress through modules, unlock new tiers, maintain your streak
+3. **Read the lesson** — it opens by itself the first time you enter a module. `Esc` skips it for this session, `m` marks it read, and `l` reopens it any time
+4. **Select an exercise** — read the instructions and the starter code
+5. **Press `w` to edit** — the exercise opens in a split: your code above, compiler output below
+6. **Write and save** — `Ctrl+S` saves and verifies. If tests pass, you earn XP
+7. **Compare** — stuck, or curious how the reference did it? `Ctrl+D` shows your code beside the solution with the differences highlighted. No XP penalty — it is simply recorded, so your stats keep meaning something
+8. **Level up** — progress through modules, unlock new tiers, maintain your streak
 
 ### Where your code lives
 
 `exercises/` holds pristine templates that stay tracked in git. The first time you open
 an exercise, your personal copy is created under `workspace/`, which is gitignored — so
 `git status` stays clean no matter how much you write, and `rust-game reset --exercise
-<id>` restores the original with a file copy. Always edit the `workspace/` path; the
-game prints it for you.
+<id>` restores the original with a file copy.
+
+The built-in editor writes to that path for you. If you would rather use your own
+editor, press `o` for the path and open it there — the file watcher picks up external
+saves exactly as before, and the two can even be used on the same exercise: a change
+made outside is reloaded into the editor automatically.
 
 ```
 +--------------------------------------------------+
@@ -151,7 +156,9 @@ No AI tool is required. Exercises include progressive hints you can reveal with 
 
 - **Rust** (1.88.0 or newer) — install via [rustup.rs](https://rustup.rs)
 - **git** — to clone this repo
-- A terminal and a text editor
+- **A C compiler** (`cc`, `gcc`, or `clang`) — the editor's syntax highlighter
+  builds a small C library. Already present on most systems.
+- A terminal. A separate text editor is optional — there is one built in.
 
 That's it. No IDE plugins, no Docker, no accounts to create.
 
@@ -198,14 +205,51 @@ rust-game clean-cache  Wipe compilation caches
 | `Enter` | Select module/exercise |
 | `l` | Read the module's lesson |
 | `m` | Mark a lesson as read |
-| `w` | Enter watch mode |
+| `w` | Open the exercise in the editor |
 | `v` | Verify exercise |
 | `h` | Reveal next hint |
 | `a` | Show AI context |
+| `o` | Show the file path (for editing elsewhere) |
 | `n` | Next exercise |
 | `s` | Stats screen |
 | `Esc` | Go back |
 | `q` | Quit |
+
+### Key Bindings (editor)
+
+While editing, the editor owns ordinary keys — they type. Every game command is on
+`Ctrl`, and editing is modeless: no insert mode to enter, no mode to escape from.
+`Alt` belongs entirely to the editor's own word motions.
+
+| Key | Action |
+|-----|--------|
+| `Ctrl+S` | Save and verify |
+| `Ctrl+F` | Search within the file (press again for the next match) |
+| `Ctrl+U` / `Ctrl+R` | Undo / redo |
+| `Ctrl+D` | Compare your code against the reference solution |
+| `Ctrl+J` | Switch between side-by-side and stacked panes |
+| `Ctrl+E` | Show the full compiler output full-screen |
+| `Ctrl+↑` / `Ctrl+↓` | Scroll the compiler output |
+| `Ctrl+G` | Reveal next hint |
+| `Ctrl+L` | Read the module's lesson |
+| `Ctrl+A` | Show AI context |
+| `Ctrl+N` | Next exercise |
+| `Ctrl+X` | Reset this exercise (press twice) |
+| `Esc` | Cancel a search, or leave the editor (your work is saved either way) |
+
+Quit with `Ctrl+C` — it saves your buffer first. Everything else, including
+every `Alt` combination, goes to the editor.
+
+Some keys are deliberately left alone. `Ctrl+I` and `Ctrl+M` arrive as Tab and
+Enter, so no application can tell them apart, and `Ctrl+H` is how some terminals
+send Backspace. `Ctrl+Q`, `Ctrl+T`, `Ctrl+W` and `Ctrl+Z` are commonly claimed by
+the terminal emulator itself — a terminal binding is consumed before the
+application ever sees it, so the game stays off them.
+
+Copy and paste: paste with your terminal's usual shortcut (bracketed paste is
+supported, so indentation survives). To copy *out*, select with the mouse as you
+normally would — the editor deliberately does not capture the mouse, so your
+terminal's own selection keeps working.
 
 ---
 

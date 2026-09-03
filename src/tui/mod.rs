@@ -1,3 +1,4 @@
+pub mod editor;
 pub mod terminal;
 pub mod event;
 pub mod ui;

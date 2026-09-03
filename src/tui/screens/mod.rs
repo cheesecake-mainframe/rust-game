@@ -6,6 +6,9 @@ mod stats;
 mod multiple_choice;
 mod ai_context;
 mod lesson;
+mod compare;
+
+pub use compare::{CompareView, Row, RowKind};
 
 use ratatui::prelude::*;
 use super::ui::{TuiApp, Screen};
@@ -21,6 +24,7 @@ pub fn render(frame: &mut Frame, tui: &TuiApp) {
         Screen::MultipleChoice(exercise_id) => multiple_choice::render(frame, tui, exercise_id),
         Screen::AiContext(exercise_id) => ai_context::render(frame, tui, exercise_id),
         Screen::Lesson(module_id) => lesson::render(frame, tui, module_id),
+        Screen::Compare(exercise_id) => compare::render(frame, tui, exercise_id),
     }
 
     // Celebration overlays render on top of any screen
