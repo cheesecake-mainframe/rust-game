@@ -44,3 +44,15 @@ TODO.md
 
 # Platform compatibility notes (internal)
 PLATFORM_COMPAT.md
+
+# Credentials and logs. None of these exist in this project today — the rules
+# are here so that if one ever appears, it cannot be committed by accident.
+# A .gitignore only prevents future commits; it does nothing about history.
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+credentials*
+*.log
