@@ -575,14 +575,23 @@ impl App {
     }
 
     /// Show the reference solution for an exercise.
-    pub fn cmd_solution(&self, exercise_id: &str) -> Result<()> {
+    pub fn cmd_solution(&mut self, exercise_id: &str) -> Result<()> {
         let exercise = self
             .catalog
             .get_exercise(exercise_id)
-            .context(format!("Exercise not found: '{}'", exercise_id))?;
+            .context(format!("Exercise not found: '{}'", exercise_id))?
+            .clone();
 
         let solution = std::fs::read_to_string(&exercise.solution_path)
             .with_context(|| format!("Solution not found: {}", exercise.solution_path.display()))?;
+
+        // Recorded here as well as in the TUI. Leaving this path silent would
+        // make the marker and the stats line trivially bypassable, which is the
+        // whole point of recording it.
+        self.state.mark_solution_viewed(exercise_id);
+        if let Err(e) = self.save() {
+            eprintln!("Warning: could not record that you viewed this: {:#}", e);
+        }
 
         println!("Solution for: {}\n", exercise.name);
         println!("{}", solution);

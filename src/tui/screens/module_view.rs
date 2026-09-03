@@ -53,6 +53,14 @@ pub fn render(frame: &mut Frame, tui: &TuiApp, module_id: &str) {
                 ExerciseStatus::Locked => ("·", Style::new().fg(Color::DarkGray)),
             };
 
+            // A suffix rather than a new icon column, so the status glyphs
+            // above keep their meaning.
+            let seen = if tui.app.state.has_viewed_solution(&ex.id) {
+                "  (solution seen)"
+            } else {
+                ""
+            };
+
             let xp_str = tui
                 .app
                 .state
@@ -65,8 +73,8 @@ pub fn render(frame: &mut Frame, tui: &TuiApp, module_id: &str) {
             let type_str = format!("{:?}", ex.exercise_type);
 
             let text = format!(
-                " [{}] {} ({}){}",
-                icon, ex.name, type_str, xp_str
+                " [{}] {} ({}){}{}",
+                icon, ex.name, type_str, xp_str, seen
             );
 
             let final_style = if i == tui.selected_exercise {

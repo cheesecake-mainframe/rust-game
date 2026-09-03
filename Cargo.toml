@@ -41,6 +41,16 @@ chrono = { version = "0.4", features = ["serde"] }
 # Temporary directories for sandbox
 tempfile = "3"
 
+# Embedded code editor for watch mode. Features are deliberately limited:
+# `mouse-support` would take the mouse away from the terminal, costing native
+# click-drag text selection (which is how compiler errors get copied out), and
+# `system-editor` binds a key we would rather keep free. See ADR 0001.
+edtui = { version = "0.11.7", features = ["syntax-highlighting", "arboard"] }
+
+# Line diffing for the solution-comparison view. No required dependencies of
+# its own; the default `text` feature brings in `bstr`.
+similar = "3.2"
+
 # Process group management (Unix)
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
